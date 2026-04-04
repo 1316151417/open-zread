@@ -19,8 +19,6 @@ class LLMAdaptor:
         messages = normalize_messages(messages)
         params = {}
 
-        logger.debug("LLM call start", provider=self._provider, messages=len(messages), tools=len(tools) if tools else 0)
-
         if self._provider == "anthropic":
             system_msg = None
             user_messages = []
@@ -45,8 +43,7 @@ class LLMAdaptor:
             else:
                 params["tools"] = tools
 
-        logger.debug("LLM params", **{k: type(v).__name__ for k, v in params.items()})
-
+        logger.debug("LLM call", messages=messages, tools=tools, **kwargs)
         if self._provider == "openai":
             yield from self._stream_openai(messages, params, **kwargs)
         else:
