@@ -1,5 +1,5 @@
 from base.types import EventType, SystemMessage, UserMessage
-from provider.llm_adaptor import LLMAdaptor
+from provider.adaptor import LLMAdaptor
 from prompt.test_system_prompt import SYSTEM_PROMPT
 from tool.test_tool import get_weather, get_temperature
 
