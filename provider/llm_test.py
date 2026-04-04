@@ -1,41 +1,15 @@
-from provider.llm_base import EventType
+from provider.llm_base import EventType, Tool, ToolProperty
 from provider.llm_adaptor import LLMAdaptor
 
-anthropic_tools = [
-    {
-        "name": "get_weather",
-        "description": "获取一个城市的天气",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "city": {
-                    "type": "string",
-                    "description": "城市名称",
-                },
-            },
-            "required": ["city"],
+tools = [
+    Tool(
+        name="get_weather",
+        description="获取一个城市的天气",
+        parameters={
+            "city": ToolProperty(type="string", description="城市名称"),
         },
-    }
-]
-
-openai_tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "description": "获取一个城市的天气",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "city": {
-                        "type": "string",
-                        "description": "城市名称",
-                    },
-                },
-                "required": ["city"],
-            },
-        },
-    }
+        required=["city"],
+    )
 ]
 
 def print_event(event):
@@ -58,7 +32,7 @@ def anthropic_test():
             {"role": "system", "content": "你是一个天气预报助手。注意：你可以在一次响应中调用多次工具"},
             {"role": "user", "content": "今天北京和上海的天气怎么样？"},
         ],
-        tools=anthropic_tools,
+        tools=tools,
     ):
         print_event(event)
 
@@ -70,7 +44,7 @@ def openai_test():
             {"role": "system", "content": "你是一个天气预报助手。注意：你可以在一次响应中调用多次工具"},
             {"role": "user", "content": "今天北京和上海的天气怎么样？"},
         ],
-        tools=openai_tools,
+        tools=tools,
     ):
         print_event(event)
 

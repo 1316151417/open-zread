@@ -1,4 +1,4 @@
-from .llm_base import EventType, Event
+from .llm_base import EventType, Event, Tool
 
 
 class LLMAdaptor:
@@ -33,7 +33,13 @@ class LLMAdaptor:
             messages = user_messages
 
         if tools:
-            params["tools"] = tools
+            if all(isinstance(t, Tool) for t in tools):
+                if self._provider == "openai":
+                    params["tools"] = [t.to_openai() for t in tools]
+                else:
+                    params["tools"] = [t.to_anthropic() for t in tools]
+            else:
+                params["tools"] = tools
 
         if self._provider == "openai":
             yield from self._stream_openai(messages, params, **kwargs)
