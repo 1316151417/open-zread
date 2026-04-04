@@ -1,4 +1,5 @@
 from base.types import EventType, Event, Tool, normalize_messages
+from log import logger
 
 
 class LLMAdaptor:
@@ -17,6 +18,8 @@ class LLMAdaptor:
     def stream(self, messages, tools=None, **kwargs):
         messages = normalize_messages(messages)
         params = {}
+
+        logger.debug("LLM call start", provider=self._provider, messages=len(messages), tools=len(tools) if tools else 0)
 
         if self._provider == "anthropic":
             system_msg = None
@@ -41,6 +44,8 @@ class LLMAdaptor:
                     params["tools"] = [t.to_anthropic() for t in tools]
             else:
                 params["tools"] = tools
+
+        logger.debug("LLM params", **{k: type(v).__name__ for k, v in params.items()})
 
         if self._provider == "openai":
             yield from self._stream_openai(messages, params, **kwargs)
