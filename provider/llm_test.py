@@ -32,10 +32,10 @@ for event in adaptor.stream(
     if event.type == EventType.MESSAGE_START:
         print("[MESSAGE_START]")
     elif event.type == EventType.CONTENT_DELTA:
-        print(event.data, end="", flush=True)
+        print(event.content, end="", flush=True)
     elif event.type == EventType.TOOL_START:
-        print(f"\n[TOOL_START#{event.tool_index}]")
+        print(f"\n[TOOL_START#{event.tool_index}] name={event.tool_name}")
     elif event.type == EventType.TOOL_END:
-        print(f"\n[TOOL_END#{event.tool_index}] {event.data}")
+        print(f"\n[TOOL_END#{event.tool_index}] name={event.tool_name} args={event.tool_arguments}")
     elif event.type == EventType.MESSAGE_END:
-        print(f"\n[MESSAGE_END: {event.data}]")
+        print(f"\n[MESSAGE_END: {event.finish_reason}]")
