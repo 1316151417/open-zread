@@ -1,4 +1,5 @@
 import inspect
+import re
 from typing import Callable, Optional, Dict, List, Union
 from dataclasses import dataclass, field
 from enum import Enum
@@ -112,6 +113,31 @@ class AssistantMessage(Message):
         super().__init__("assistant", content)
 
 
+def _parse_param_descriptions(docstring: str) -> Dict[str, str]:
+    if not docstring:
+        return {}
+
+    descriptions = {}
+
+    pattern = r'Args:\s*\n((?:\s+\w+:\s+[^\n]+\n*)+)'
+    match = re.search(pattern, docstring)
+    if not match:
+        return {}
+
+    args_section = match.group(1)
+    for line in args_section.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        param_match = re.match(r'(\w+):\s*(.+)', line)
+        if param_match:
+            param_name = param_match.group(1)
+            param_desc = param_match.group(2).strip()
+            descriptions[param_name] = param_desc
+
+    return descriptions
+
+
 def tool(func=None, *, name=None, description=None):
     def decorator(f):
         tool_name = name or f.__name__
@@ -120,6 +146,8 @@ def tool(func=None, *, name=None, description=None):
         sig = inspect.signature(f)
         parameters = {}
         required = []
+
+        param_descriptions = _parse_param_descriptions(f.__doc__)
 
         for param_name, param in sig.parameters.items():
             if param_name == "self":
@@ -136,7 +164,7 @@ def tool(func=None, *, name=None, description=None):
 
             parameters[param_name] = ToolProperty(
                 type=param_type,
-                description=f"{param_name}",
+                description=param_descriptions.get(param_name, param_name),
             )
 
         return Tool(
