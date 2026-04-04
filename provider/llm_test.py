@@ -3,13 +3,13 @@ from provider.anthropic_provider.anthropic_adaptor import LLMAdaptor, EventType
 tools = [
     {
         "name": "get_weather",
-        "description": "Get the current weather in a given location",
+        "description": "获取一个城市的天气",
         "input_schema": {
             "type": "object",
             "properties": {
                 "city": {
                     "type": "string",
-                    "description": "The city name",
+                    "description": "城市名称",
                 },
             },
             "required": ["city"],
@@ -20,8 +20,9 @@ tools = [
 adaptor = LLMAdaptor()
 
 for event in adaptor.stream(
-    [
-        {"role": "user", "content": "What's the weather in Beijing and Tokyo?"},
+    system="你是一个天气预报助手。注意：你可以在一次响应中调用多次工具",
+    messages=[
+        {"role": "user", "content": "今天北京和上海的天气怎么样？"},
     ],
     tools=tools,
 ):
