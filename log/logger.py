@@ -22,8 +22,13 @@ class Logger:
                 print(f"  {key}:")
                 for i, t in enumerate(value):
                     if hasattr(t, "name"):
-                        desc = t.description[:50] + "..." if len(t.description) > 50 else t.description
-                        print(f"    [{i}] {t.name}: {desc}")
+                        print(f"    [{i}] {t.name}")
+                        desc_line = t.description.split('\n')[0] if t.description else ""
+                        print(f"        description: {desc_line}")
+                        if t.parameters:
+                            print(f"        parameters:")
+                            for param_name, param in t.parameters.items():
+                                print(f"          {param_name}: {param.description}")
                     else:
                         print(f"    [{i}] {t}")
             elif isinstance(value, str):

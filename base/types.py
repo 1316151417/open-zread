@@ -119,21 +119,23 @@ def _parse_param_descriptions(docstring: str) -> Dict[str, str]:
 
     descriptions = {}
 
-    pattern = r'Args:\s*\n((?:\s+\w+:\s+[^\n]+\n*)+)'
-    match = re.search(pattern, docstring)
-    if not match:
+    args_match = re.search(r'Args:\s*\n(.*?)(?=\n\n|\Z)', docstring, re.DOTALL)
+    if not args_match:
         return {}
 
-    args_section = match.group(1)
-    for line in args_section.strip().split('\n'):
-        line = line.strip()
-        if not line:
+    args_text = args_match.group(1)
+
+    for line in args_text.split('\n'):
+        stripped = line.lstrip()
+        if not stripped:
             continue
-        param_match = re.match(r'(\w+):\s*(.+)', line)
-        if param_match:
-            param_name = param_match.group(1)
-            param_desc = param_match.group(2).strip()
-            descriptions[param_name] = param_desc
+
+        match = re.match(r'(\w+):\s*(.+)', stripped)
+        if match:
+            param_name = match.group(1)
+            param_desc = match.group(2).strip()
+            if param_name and param_desc:
+                descriptions[param_name] = param_desc
 
     return descriptions
 
