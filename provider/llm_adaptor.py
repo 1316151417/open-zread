@@ -75,17 +75,14 @@ class LLMAdaptor:
 
                     if tc.function.name and not tools[idx]["started"]:
                         tools[idx]["started"] = True
-                        yield Event(
-                            EventType.TOOL_START,
-                            tool_index=idx,
-                            tool_name=tools[idx]["name"],
-                        )
 
                     if tc.function.arguments:
                         tools[idx]["arguments"] += tc.function.arguments
 
             if choice.finish_reason is not None:
-                for idx, tool in tools.items():
+                for idx in sorted(tools.keys()):
+                    tool = tools[idx]
+                    yield Event(EventType.TOOL_START, tool_index=idx, tool_name=tool["name"])
                     yield Event(
                         EventType.TOOL_END,
                         tool_index=idx,
