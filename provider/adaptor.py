@@ -14,22 +14,26 @@ class LLMAdaptor:
 
         self._provider = provider
 
-    def stream(self, messages, system=None, tools=None, **kwargs):
+    def stream(self, messages, tools=None, **kwargs):
         params = {}
 
         if self._provider == "anthropic":
-            if system:
-                params["system"] = system
+            system_msg = None
+            user_messages = []
 
-            if tools:
-                params["tools"] = tools
+            for msg in messages:
+                if msg.get("role") == "system":
+                    system_msg = msg["content"]
+                else:
+                    user_messages.append(msg)
 
-        elif self._provider == "openai":
-            if system:
-                messages = [{"role": "system", "content": system}] + list(messages)
+            if system_msg:
+                params["system"] = system_msg
 
-            if tools:
-                params["tools"] = tools
+            messages = user_messages
+
+        if tools:
+            params["tools"] = tools
 
         if self._provider == "openai":
             yield from self._stream_openai(messages, params, **kwargs)

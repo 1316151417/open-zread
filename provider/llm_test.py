@@ -54,8 +54,8 @@ def anthropic_test():
     adaptor = LLMAdaptor(provider="anthropic")
 
     for event in adaptor.stream(
-        system="你是一个天气预报助手。注意：你可以在一次响应中调用多次工具",
         messages=[
+            {"role": "system", "content": "你是一个天气预报助手。注意：你可以在一次响应中调用多次工具"},
             {"role": "user", "content": "今天北京和上海的天气怎么样？"},
         ],
         tools=anthropic_tools,
@@ -66,8 +66,8 @@ def openai_test():
     adaptor = LLMAdaptor(provider="openai")
 
     for event in adaptor.stream(
-        system="你是一个天气预报助手。注意：你可以在一次响应中调用多次工具",
         messages=[
+            {"role": "system", "content": "你是一个天气预报助手。注意：你可以在一次响应中调用多次工具"},
             {"role": "user", "content": "今天北京和上海的天气怎么样？"},
         ],
         tools=openai_tools,
