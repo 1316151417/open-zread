@@ -1,4 +1,5 @@
 from provider.base import EventType
+from provider.adaptor import LLMAdaptor
 
 anthropic_tools = [
     {
@@ -50,9 +51,7 @@ def print_event(event):
         print(f"\n[MESSAGE_END: {event.finish_reason}]")
 
 def anthropic_test():
-    from provider.anthropic.anthropic_adaptor import LLMAdaptor
-
-    adaptor = LLMAdaptor()
+    adaptor = LLMAdaptor(provider="anthropic")
 
     for event in adaptor.stream(
         system="你是一个天气预报助手。注意：你可以在一次响应中调用多次工具",
@@ -64,13 +63,11 @@ def anthropic_test():
         print_event(event)
 
 def openai_test():
-    from provider.openai.openai_adaptor import LLMAdaptor
-
-    adaptor = LLMAdaptor()
+    adaptor = LLMAdaptor(provider="openai")
 
     for event in adaptor.stream(
+        system="你是一个天气预报助手。注意：你可以在一次响应中调用多次工具",
         messages=[
-            {"role": "system", "content": "你是一个天气预报助手。注意：你可以在一次响应中调用多次工具"},
             {"role": "user", "content": "今天北京和上海的天气怎么样？"},
         ],
         tools=openai_tools,
