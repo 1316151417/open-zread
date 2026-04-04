@@ -65,7 +65,7 @@ class LLMAdaptor:
 
             if delta.tool_calls:
                 for tc in delta.tool_calls:
-                    idx = tc.index
+                    idx = tc.index + 1
                     if idx not in tools:
                         tools[idx] = {
                             "name": tc.function.name or "",
