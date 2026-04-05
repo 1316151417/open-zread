@@ -116,6 +116,7 @@ class LLMAdaptor:
                     tools[idx] = {
                         "id": event.content_block.id,
                         "name": event.content_block.name,
+                        # 初始时没有partial_json这个字段
                         "arguments": "",
                     }
             # 内容块变更
