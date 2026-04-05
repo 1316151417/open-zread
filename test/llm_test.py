@@ -4,15 +4,23 @@ from prompt.test_system_prompt import SYSTEM_PROMPT
 from tool.test_tool import get_weather, get_temperature
 from agent.react_agent import react
 
-tools = [get_weather, get_temperature]
+tools = [get_weather]
 
 def print_event(event):
     if event.type == EventType.MESSAGE_START:
         print("[MESSAGE_START]")
-    elif event.type == EventType.CONTENT_DELTA:
-        print(event.content, end="", flush=True)
+    elif event.type == EventType.THINKING_START:
+        print("[THINKING_START]")
     elif event.type == EventType.THINKING_DELTA:
         print(event.content, end="", flush=True)
+    elif event.type == EventType.THINKING_END:
+        print("\n[THINKING_END]")
+    elif event.type == EventType.CONTENT_START:
+        print("[CONTENT_START]")
+    elif event.type == EventType.CONTENT_DELTA:
+        print(event.content, end="", flush=True)
+    elif event.type == EventType.CONTENT_END:
+        print("\n[CONTENT_END]")
     elif event.type == EventType.TOOL_CALL:
         print(f"\n[TOOL_CALL] id={event.tool_id} name={event.tool_name} args={event.tool_arguments}")
     elif event.type == EventType.MESSAGE_END:

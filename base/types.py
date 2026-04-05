@@ -7,8 +7,12 @@ from enum import Enum
 
 class EventType(Enum):
     MESSAGE_START = "message_start"
-    CONTENT_DELTA = "content_delta"
+    THINKING_START = "thinking_start"
     THINKING_DELTA = "thinking_delta"
+    THINKING_END = "thinking_end"
+    CONTENT_START = "content_start"
+    CONTENT_DELTA = "content_delta"
+    CONTENT_END = "content_end"
     TOOL_CALL = "tool_call"
     MESSAGE_END = "message_end"
 
