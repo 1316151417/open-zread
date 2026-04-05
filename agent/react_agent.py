@@ -78,4 +78,4 @@ def react(messages, tools, provider="anthropic"):
                 tool_result=tool_call["tool_result"],
                 tool_error=tool_call["tool_error"],
             ))
-    return content or thinking or "finished"
+    return content or "finished"
