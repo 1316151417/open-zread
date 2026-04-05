@@ -2,6 +2,7 @@ from base.types import EventType, SystemMessage, UserMessage
 from provider.adaptor import LLMAdaptor
 from prompt.test_system_prompt import SYSTEM_PROMPT
 from tool.test_tool import get_weather, get_temperature
+from agent.react_agent import react
 
 tools = [get_weather, get_temperature]
 
@@ -41,8 +42,18 @@ def anthropic_test():
     ):
         print_event(event)
 
+def react_test():
+    messages = [
+        SystemMessage(SYSTEM_PROMPT),
+        UserMessage("今天北京和上海的天气怎么样？"),
+    ]
+    result = react(messages, tools)
+    print(f"\n[Final Result]\n{result}")
+
 if __name__ == "__main__":
-    print("=== OpenAI Test ===")
-    openai_test()
-    print("=== Anthropic Test ===")
-    anthropic_test()
+    # print("=== OpenAI Test ===")
+    # openai_test()
+    # print("=== Anthropic Test ===")
+    # anthropic_test()
+    print("=== React Agent Test ===")
+    react_test()
