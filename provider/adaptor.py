@@ -187,8 +187,6 @@ class LLMAdaptor:
         tools = {}
         block_types = {}
         for event in self._call_stream(messages, **params, **kwargs):
-            # DEBUG
-            # print(event.model_dump())
             # 开始事件
             if event.type == "message_start":
                 yield Event(EventType.MESSAGE_START)
