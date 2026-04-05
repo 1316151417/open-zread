@@ -1,4 +1,3 @@
-=== Anthropic Test ===
 {'message': {'id': '58b5206b-999c-40d3-853d-305bc385b83e', 'container': None, 'content': [], 'model': 'deepseek-reasoner', 'role': 'assistant', 'stop_details': None, 'stop_reason': None, 'stop_sequence': None, 'type': 'message', 'usage': {'cache_creation': None, 'cache_creation_input_tokens': 0, 'cache_read_input_tokens': 384, 'inference_geo': None, 'input_tokens': 38, 'output_tokens': 0, 'server_tool_use': None, 'service_tier': 'standard'}}, 'type': 'message_start'}
 {'content_block': {'signature': '', 'thinking': '', 'type': 'thinking'}, 'index': 0, 'type': 'content_block_start'}
 {'delta': {'thinking': '用户', 'type': 'thinking_delta'}, 'index': 0, 'type': 'content_block_delta'}

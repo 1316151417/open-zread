@@ -53,28 +53,32 @@ class LLMAdaptor:
         tools = {}
         for chunk in self._call_stream(messages, **params, **kwargs):
             # DEBUG
-            # print(event.model_dump())
+            # print(chunk.model_dump())
             # 一般只处理第一个
             choice = chunk.choices[0]
             delta = choice.delta
+            usage = chunk.usage
             # 开始事件
             if delta.role == "assistant":
                 yield Event(EventType.MESSAGE_START)
-            # 思考变更事件
-            if getattr(delta, 'reasoning_content', None):
-                yield Event(EventType.THINKING_DELTA, content=delta.reasoning_content)
             # 内容变更事件
             if delta.content:
                 yield Event(EventType.CONTENT_DELTA, content=delta.content)
+            # 思考变更事件（工具调用时不存在该属性）
+            if getattr(delta, 'reasoning_content', None):
+                yield Event(EventType.THINKING_DELTA, content=delta.reasoning_content)
             # 工具调用封装
             if delta.tool_calls:
                 for tc in delta.tool_calls:
+                    # 工具索引和id
                     idx = tc.index + 1
+                    tool_id = tc.id
                     # 工具名称
                     if idx not in tools:
                         tools[idx] = {
+                            "id": tool_id,
                             "name": tc.function.name or "",
-                            "arguments": "",
+                            "arguments": tc.function.arguments or "",
                         }
                     # 工具参数
                     if tc.function.arguments:
@@ -86,12 +90,12 @@ class LLMAdaptor:
                     tool = tools[idx]
                     yield Event(
                         EventType.TOOL_CALL,
-                        tool_index=idx,
+                        tool_id=tool["id"],
                         tool_name=tool["name"],
                         tool_arguments=tool["arguments"],
                     )
                 # 结束事件
-                yield Event(EventType.MESSAGE_END, stop_reason=choice.finish_reason)
+                yield Event(EventType.MESSAGE_END, stop_reason=choice.finish_reason, usage=usage)
                 # 终止迭代器
                 return
 

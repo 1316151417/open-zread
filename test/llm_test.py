@@ -17,18 +17,6 @@ def print_event(event):
     elif event.type == EventType.MESSAGE_END:
         print(f"\n[MESSAGE_END] stop_reason={event.stop_reason} usage={event.usage}")
 
-def anthropic_test():
-    adaptor = LLMAdaptor(provider="anthropic")
-
-    for event in adaptor.stream(
-        messages=[
-            SystemMessage(SYSTEM_PROMPT),
-            UserMessage("今天北京和上海的天气怎么样？"),
-        ],
-        tools=tools,
-    ):
-        print_event(event)
-
 def openai_test():
     adaptor = LLMAdaptor(provider="openai")
 
@@ -41,8 +29,20 @@ def openai_test():
     ):
         print_event(event)
 
+def anthropic_test():
+    adaptor = LLMAdaptor(provider="anthropic")
+
+    for event in adaptor.stream(
+        messages=[
+            SystemMessage(SYSTEM_PROMPT),
+            UserMessage("今天北京和上海的天气怎么样？"),
+        ],
+        tools=tools,
+    ):
+        print_event(event)
+
 if __name__ == "__main__":
-    # print("=== OpenAI Test ===")
-    # openai_test()
+    print("=== OpenAI Test ===")
+    openai_test()
     print("=== Anthropic Test ===")
     anthropic_test()
