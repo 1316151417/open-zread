@@ -1,6 +1,6 @@
 import json
 
-DEBUG = True
+DEBUG = False
 
 
 class Logger:

@@ -52,18 +52,42 @@ class LLMAdaptor:
     def _stream_openai(self, messages, params, **kwargs):
         state = "idle"
         tools = {}
+        in_thinking = False
 
         for chunk in self._call_stream(messages, **params, **kwargs):
             choice = chunk.choices[0]
             delta = choice.delta
 
             if state == "idle":
-                if delta.role == "assistant" or delta.content or delta.tool_calls:
+                if delta.role == "assistant" or delta.content or delta.tool_calls or hasattr(delta, 'reasoning_content') and delta.reasoning_content:
                     state = "streaming"
                     yield Event(EventType.MESSAGE_START)
 
+            if hasattr(delta, 'reasoning_content') and delta.reasoning_content:
+                if not in_thinking:
+                    in_thinking = True
+                    yield Event(EventType.THINKING_START)
+                yield Event(EventType.THINKING_DELTA, content=delta.reasoning_content)
+
             if delta.content:
-                yield Event(EventType.CONTENT_DELTA, content=delta.content)
+                content = delta.content
+                if "<thinking>" in content or "</thinking>" in content:
+                    if "<thinking>" in content and not in_thinking:
+                        in_thinking = True
+                        yield Event(EventType.THINKING_START)
+                    elif "</thinking>" in content and in_thinking:
+                        in_thinking = False
+                        yield Event(EventType.THINKING_END)
+                    content = content.replace("<thinking>", "").replace("</thinking>", "")
+                    if in_thinking and content:
+                        yield Event(EventType.THINKING_DELTA, content=content)
+                    elif content and not in_thinking:
+                        yield Event(EventType.CONTENT_DELTA, content=content)
+                else:
+                    if in_thinking:
+                        yield Event(EventType.THINKING_DELTA, content=delta.content)
+                    else:
+                        yield Event(EventType.CONTENT_DELTA, content=delta.content)
 
             if delta.tool_calls:
                 for tc in delta.tool_calls:
@@ -82,6 +106,9 @@ class LLMAdaptor:
                         tools[idx]["arguments"] += tc.function.arguments
 
             if choice.finish_reason is not None:
+                if in_thinking:
+                    in_thinking = False
+                    yield Event(EventType.THINKING_END)
                 for idx in sorted(tools.keys()):
                     tool = tools[idx]
                     yield Event(EventType.TOOL_START, tool_index=idx, tool_name=tool["name"])
@@ -97,6 +124,7 @@ class LLMAdaptor:
 
     def _stream_anthropic(self, messages, params, **kwargs):
         tools = {}
+        thinking = False
         stop_reason = None
 
         for event in self._call_stream(messages, **params, **kwargs):
@@ -104,7 +132,11 @@ class LLMAdaptor:
                 yield Event(EventType.MESSAGE_START)
 
             elif event.type == "content_block_start":
-                if event.content_block.type == "tool_use":
+                if event.content_block.type == "thinking":
+                    thinking = True
+                    yield Event(EventType.THINKING_START)
+
+                elif event.content_block.type == "tool_use":
                     idx = event.index
                     tools[idx] = {
                         "name": event.content_block.name,
@@ -121,12 +153,20 @@ class LLMAdaptor:
                 if event.delta.type == "text_delta":
                     yield Event(EventType.CONTENT_DELTA, content=event.delta.text)
 
+                elif event.delta.type == "thinking_delta":
+                    thinking_content = event.delta.thinking if hasattr(event.delta, 'thinking') else ""
+                    yield Event(EventType.THINKING_DELTA, content=thinking_content)
+
                 elif event.delta.type == "input_json_delta":
                     idx = event.index
                     if idx in tools:
                         tools[idx]["arguments"] += event.delta.partial_json
 
             elif event.type == "content_block_stop":
+                if thinking:
+                    thinking = False
+                    yield Event(EventType.THINKING_END)
+
                 idx = event.index
                 if idx in tools and not tools[idx]["ended"]:
                     tools[idx]["ended"] = True
