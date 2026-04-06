@@ -18,17 +18,21 @@ class EventType(Enum):
     # react相关
     STEP_START= "step_start"
     STEP_END = "step_end"
+    TOOL_CALL_SUCCESS = "tool_call_success"
+    TOOL_CALL_FAILED = "tool_call_failed"
     
 
 
 @dataclass
-class Event:
+class Event:    
     type: EventType
+    raw: Optional[dict] = None
     content: Optional[str] = None
     tool_id: Optional[str] = None
     tool_name: Optional[str] = None
     tool_arguments: Optional[str] = None
-    raw: Optional[dict] = None
+    tool_result: Optional[str] = None
+    tool_error: Optional[str] = None
     stop_reason: Optional[str] = None
     usage: Optional[dict] = None
     step: Optional[int] = None

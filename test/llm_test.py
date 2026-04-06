@@ -3,28 +3,33 @@ from provider.adaptor import LLMAdaptor
 from prompt.test_system_prompt import SYSTEM_PROMPT
 from tool.test_tool import get_weather, get_temperature
 from agent import react_agent
+from log import logger
 
 tools = [get_weather]
 
 def print_event(event):
     if event.type == EventType.MESSAGE_START:
-        print("[MESSAGE_START]")
-    elif event.type == EventType.THINKING_START:
-        print("[THINKING_START]")
-    elif event.type == EventType.THINKING_DELTA:
-        print(event.content, end="", flush=True)
-    elif event.type == EventType.THINKING_END:
-        print("\n[THINKING_END]")
+        logger.debug("[MESSAGE_START]")
     elif event.type == EventType.CONTENT_START:
-        print("[CONTENT_START]")
+        logger.debug("[Content Start]")
     elif event.type == EventType.CONTENT_DELTA:
-        print(event.content, end="", flush=True)
+        logger.debug(event.content, end="", flush=True)
     elif event.type == EventType.CONTENT_END:
-        print("\n[CONTENT_END]")
+        logger.debug("\n[Content End]")
+    elif event.type == EventType.THINKING_START:
+        logger.debug("[Thinking Start]")
+    elif event.type == EventType.THINKING_DELTA:
+        logger.debug(event.content, end="", flush=True)
+    elif event.type == EventType.THINKING_END:
+        logger.debug("\n[Thinking End]")
     elif event.type == EventType.TOOL_CALL:
-        print(f"\n[TOOL_CALL] id={event.tool_id} name={event.tool_name} args={event.tool_arguments}")
+        logger.debug("[Tool Call]", tool_name=event.tool_name, tool_arguments=event.tool_arguments)
+    elif event.type == EventType.TOOL_CALL_SUCCESS:
+        logger.debug("[Tool Result]", tool_result=str(event.tool_result))
+    elif event.type == EventType.TOOL_CALL_FAILED:
+        logger.debug("[Tool Error]", tool_error=str(event.tool_error))
     elif event.type == EventType.MESSAGE_END:
-        print(f"\n[MESSAGE_END] stop_reason={event.stop_reason} usage={event.usage}")
+        logger.debug("[MESSAGE_END]", stop_reason=event.stop_reason, usage=event.usage)
 
 def openai_test():
     adaptor = LLMAdaptor(provider="openai")
@@ -58,10 +63,7 @@ def react_test():
     # for event in react_agent.stream(messages, tools, provider="openai"):
     #     pass
     for event in react_agent.stream(messages, tools, provider="anthropic"):
-        if event.type == EventType.STEP_START:
-            print("[STEP_START] Step:", event.step)
-        elif event.type == EventType.STEP_END:
-            print("[STEP_END] Step:", event.step)
+        print_event(event)
 
 if __name__ == "__main__":
     # print("=== OpenAI Test ===")

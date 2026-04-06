@@ -5,7 +5,7 @@ DEBUG = True
 
 class Logger:
     @staticmethod
-    def debug(msg: str, start="", end="\n", flush=True, **kwargs):
+    def debug(msg: str, start="", end="\n", flush=False, **kwargs):
         if not DEBUG:
             return
 
