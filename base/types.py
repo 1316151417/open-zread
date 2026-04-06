@@ -15,6 +15,10 @@ class EventType(Enum):
     CONTENT_END = "content_end"
     TOOL_CALL = "tool_call"
     MESSAGE_END = "message_end"
+    # react相关
+    STEP_START= "step_start"
+    STEP_END = "step_end"
+    
 
 
 @dataclass
@@ -27,6 +31,7 @@ class Event:
     raw: Optional[dict] = None
     stop_reason: Optional[str] = None
     usage: Optional[dict] = None
+    step: Optional[int] = None
 
 
 @dataclass

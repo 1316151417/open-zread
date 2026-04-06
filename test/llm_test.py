@@ -2,7 +2,7 @@ from base.types import EventType, SystemMessage, UserMessage
 from provider.adaptor import LLMAdaptor
 from prompt.test_system_prompt import SYSTEM_PROMPT
 from tool.test_tool import get_weather, get_temperature
-from agent.react_agent import react
+from agent import react_agent
 
 tools = [get_weather]
 
@@ -55,9 +55,13 @@ def react_test():
         SystemMessage(SYSTEM_PROMPT),
         UserMessage("今天北京和上海的天气怎么样？"),
     ]
-    result = react(messages, tools, provider="anthropic")
-    # result = react(messages, tools, provider="openai")
-    # print(f"\n[Final Result]\n{result}")
+    # for event in react_agent.stream(messages, tools, provider="openai"):
+    #     pass
+    for event in react_agent.stream(messages, tools, provider="anthropic"):
+        if event.type == EventType.STEP_START:
+            print("[STEP_START] Step:", event.step)
+        elif event.type == EventType.STEP_END:
+            print("[STEP_END] Step:", event.step)
 
 if __name__ == "__main__":
     # print("=== OpenAI Test ===")

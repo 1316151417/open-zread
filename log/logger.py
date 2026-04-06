@@ -1,15 +1,15 @@
 import json
 
-DEBUG = False
+DEBUG = True
 
 
 class Logger:
     @staticmethod
-    def debug(msg: str, **kwargs):
+    def debug(msg: str, start="", end="\n", flush=True, **kwargs):
         if not DEBUG:
             return
 
-        print(f"[DEBUG] {msg}")
+        print(f"{start}{msg}", end=end, flush=flush)
         for key, value in kwargs.items():
             if key == "messages":
                 print(f"  {key}:")

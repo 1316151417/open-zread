@@ -1,17 +1,20 @@
 import json
 from provider.adaptor import LLMAdaptor
-from base.types import EventType, ToolMessage, AssistantMessage
+from base.types import Event, EventType, ToolMessage, AssistantMessage
+from log import logger
 
-MAX_LLM_CALL_CNT = 30
+MAX_STEP_CNT = 30
 
 
-def react(messages, tools, provider="anthropic"):
+def stream(messages, tools, provider="anthropic"):    
     adaptor = LLMAdaptor(provider=provider)
     react_finished = False
-    llm_call_cnt = 0
+    step = 1
 
-    while (not react_finished) and llm_call_cnt < MAX_LLM_CALL_CNT:
-        llm_call_cnt = llm_call_cnt + 1
+    while (not react_finished) and step <= MAX_STEP_CNT:
+        cur_step = step
+        yield Event(type=EventType.STEP_START, step=cur_step)
+        step = step + 1
 
         content = ""
         thinking = ""
@@ -22,35 +25,39 @@ def react(messages, tools, provider="anthropic"):
             messages,
             tools=tools,
         ):
+            # 直接转发事件
+            yield event
+            # 内部处理
             if event.type == EventType.CONTENT_START:
-                print("[Content Start]")
+                logger.debug("[Content Start]")
             elif event.type == EventType.CONTENT_DELTA:
                 content += event.content
-                print(event.content, end="", flush=True)
+                logger.debug(event.content, end="", flush=False)
             elif event.type == EventType.CONTENT_END:
-                print("\n[Content End]")
+                logger.debug("\n[Content End]")
             elif event.type == EventType.THINKING_START:
-                print("[Thinking Start]")
+                logger.debug("[Thinking Start]")
             elif event.type == EventType.THINKING_DELTA:
                 thinking += event.content
-                print(event.content, end="", flush=True)
+                logger.debug(event.content, end="", flush=False)
             elif event.type == EventType.THINKING_END:
-                print("\n[Thinking End]")
+                logger.debug("\n[Thinking End]")
             elif event.type == EventType.TOOL_CALL:
                 raw_tool_calls.append(event.raw)
                 tool_results[event.tool_id] = {"result": None, "error": None}
-                print(f"[Tool Call] {event.tool_name}({event.tool_arguments})")
+                logger.debug("[Tool Call]", tool_name=event.tool_name, tool_arguments=event.tool_arguments)
                 try:
                     exec_tool = next((t for t in tools if t.name == event.tool_name), None)
                     if exec_tool is None:
                         raise ValueError(f"Tool '{event.tool_name}' not found")
                     exec_tool_arguments = json.loads(event.tool_arguments) if event.tool_arguments else {}
                     result = exec_tool(**exec_tool_arguments)
-                    print(f"[Tool Result] {result}")
+                    logger.debug("[Tool Result]", tool_result=result)
                     tool_results[event.tool_id]["result"] = result
                 except Exception as e:
                     tool_results[event.tool_id]["error"] = str(e)
 
+        yield Event(type=EventType.STEP_END, content=content, step=cur_step)
         # 判断是否结束
         if not raw_tool_calls:
             react_finished = True
@@ -67,4 +74,3 @@ def react(messages, tools, provider="anthropic"):
                 tool_result=tr["result"],
                 tool_error=tr["error"],
             ))
-    return content or "finished"
