@@ -6,7 +6,7 @@ from base.types import tool
 
 _project_root: str = ""
 
-MAX_READ_SIZE = 50 * 1024  # 50KB
+MAX_READ_SIZE = 20 * 1024  # 20KB — 控制上下文膨胀
 MAX_GREP_RESULTS = 100
 
 

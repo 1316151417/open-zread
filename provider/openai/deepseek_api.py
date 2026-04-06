@@ -7,7 +7,7 @@ client = OpenAI(
 )
 
 
-def call(messages, model="deepseek-reasoner", **kwargs):
+def call(messages, model="deepseek-chat", **kwargs):
     response = client.chat.completions.create(
         model=model,
         messages=messages,
@@ -16,7 +16,7 @@ def call(messages, model="deepseek-reasoner", **kwargs):
     return response.choices[0].message
 
 
-def call_stream(messages, model="deepseek-reasoner", **kwargs):
+def call_stream(messages, model="deepseek-chat", **kwargs):
     stream = client.chat.completions.create(
         model=model,
         messages=messages,

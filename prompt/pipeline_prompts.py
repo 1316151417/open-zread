@@ -80,47 +80,40 @@ Modules:
 
 # --- Stage: Sub-Agent Researcher ---
 
-SUB_AGENT_SYSTEM = """You are a senior software engineer performing a deep code analysis of the "{module_name}" module in the {project_name} project.
+SUB_AGENT_SYSTEM = """You are a senior software engineer analyzing the "{module_name}" module in the {project_name} project.
 
 Module description: {module_description}
 
 Files in this module:
 {module_files}
 
-Your task:
-1. Read every file in this module thoroughly using the provided tools
-2. Understand the code's purpose, design patterns, and internal relationships
-3. Use grep to find cross-references and understand how this module interacts with others
-4. Produce a detailed markdown report
+IMPORTANT RULES:
+- Read ALL files in the module first (batch them into as few tool calls as possible)
+- Then do a single grep for cross-references
+- Then immediately write your final report — do NOT make any more tool calls
+- Your FINAL message (no tool calls) must be the complete markdown report
+- Keep the report concise and factual. Do NOT pad with filler.
 
-Your report MUST follow this structure:
+Report structure:
 
 ## Module: {module_name}
 
 ### Purpose
-What this module does and why it exists in the project.
+What this module does.
 
 ### Architecture
-How the code is structured. List key classes/functions with brief descriptions. Identify design patterns.
+Key classes/functions and how they connect.
 
 ### Key Implementation Details
-Notable algorithms, data structures, edge cases, and interesting design decisions.
+Notable patterns, algorithms, design decisions.
 
 ### Dependencies
-- Internal: What other modules this one depends on
-- External: What depends on this module (use grep to find imports/references)
-
-### Code Quality Observations
-Strengths and potential improvements.
+What this module uses and what uses it.
 
 ### API Surface
-Public interfaces that other modules would use.
+Public interfaces other modules would call."""
 
-Be thorough. Read files completely. Use grep to find cross-references.
-Do NOT guess — base everything on what you actually read in the code.
-When done with your research, output your final report. Do not use any tools in your final message."""
-
-SUB_AGENT_USER = """Please analyze the "{module_name}" module. Start by reading all the files listed above, then use grep to understand dependencies, and finally write your analysis report."""
+SUB_AGENT_USER = """Analyze the "{module_name}" module now. Read all files, check dependencies with grep, then output the report."""
 
 
 # --- Stage: Report Aggregator ---

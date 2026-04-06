@@ -34,7 +34,7 @@ class LLMAdaptor:
             else:
                 params["tools"] = tools
 
-        logger.debug("LLM call", messages=messages, tools=tools, **kwargs)
+        # logger.debug("LLM call", messages=messages, tools=tools, **kwargs)
         if self._provider == "openai":
             yield from self._stream_openai(messages, params, **kwargs)
         else:
