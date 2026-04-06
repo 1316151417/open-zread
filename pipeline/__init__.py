@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from settings import load_settings
+from settings import load_settings, get_lite_model, get_pro_model, get_max_model
 from pipeline.types import PipelineContext
 from pipeline.scanner import scan_project
 from pipeline.llm_filter import llm_filter_files
@@ -24,11 +24,19 @@ def run_pipeline(
     provider = settings["provider"]
     max_sub_agents = settings["max_sub_agents"]
     max_sub_agent_steps = settings["max_sub_agent_steps"]
+    lite_model = get_lite_model()
+    pro_model = get_pro_model()
+    max_model = get_max_model()
+
+    print(f"模型配置: lite={lite_model}, pro={pro_model}, max={max_model}")
 
     ctx = PipelineContext(
         project_path=project_path,
         project_name=project_name,
         provider=provider,
+        lite_model=lite_model,
+        pro_model=pro_model,
+        max_model=max_model,
         max_sub_agents=max_sub_agents,
         max_sub_agent_steps=max_sub_agent_steps,
         settings=settings,

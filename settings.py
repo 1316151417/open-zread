@@ -3,7 +3,9 @@ import os
 
 _DEFAULTS = {
     "provider": "anthropic",
-    "model": "deepseek-chat",
+    "lite_model": "deepseek-chat",
+    "pro_model": "deepseek-chat",
+    "max_model": "deepseek-reasoner",
     "max_tokens": 16384,
     "max_sub_agents": 5,
     "max_sub_agent_steps": 15,
@@ -49,7 +51,19 @@ def get_provider() -> str:
 
 
 def get_model() -> str:
-    return get_settings()["model"]
+    return get_settings().get("model", _DEFAULTS.get("lite_model", "deepseek-chat"))
+
+
+def get_lite_model() -> str:
+    return get_settings().get("lite_model", _DEFAULTS.get("lite_model", "deepseek-chat"))
+
+
+def get_pro_model() -> str:
+    return get_settings().get("pro_model", _DEFAULTS.get("pro_model", "deepseek-chat"))
+
+
+def get_max_model() -> str:
+    return get_settings().get("max_model", _DEFAULTS.get("max_model", "deepseek-reasoner"))
 
 
 def get_max_tokens() -> int:

@@ -30,6 +30,7 @@ def aggregate_reports(ctx: PipelineContext) -> None:
         messages=messages,
         tools=tools,
         provider=ctx.provider,
+        model=ctx.max_model,
         max_steps=ctx.max_sub_agent_steps,
     )
 

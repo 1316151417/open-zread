@@ -78,6 +78,7 @@ def _research_single_module(
             messages=messages,
             tools=tools,
             provider=ctx.provider,
+            model=ctx.pro_model,
             max_steps=ctx.max_sub_agent_steps,
         )
         report = _collect_agent_output(events, tag, verbose)
@@ -115,6 +116,7 @@ def _research_single_module(
         messages=final_messages,
         tools=[],  # 无工具
         provider=ctx.provider,
+        model=ctx.pro_model,
         max_steps=ctx.max_sub_agent_steps,
     )
     report = _collect_agent_output(events, tag, verbose)
@@ -188,7 +190,7 @@ def _evaluate_report(ctx: PipelineContext, module: Module, report: str) -> dict:
     )
 
     print(f"  [{module.name}] 调用评估 LLM...", flush=True)
-    response = _call_llm(ctx.provider, system_prompt, user_prompt)
+    response = _call_llm(ctx.provider, system_prompt, user_prompt, model=ctx.pro_model)
     print(f"  [{module.name}] 评估响应 {len(response)} 字符: {response[:200]}...", flush=True)
 
     try:

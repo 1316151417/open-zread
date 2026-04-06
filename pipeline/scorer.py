@@ -10,13 +10,16 @@ from prompt.pipeline_prompts import SCORER_SYSTEM, SCORER_USER
 CALL_LLM_TIMEOUT = 60
 
 
-def _call_llm_with_timeout(adaptor, messages, timeout):
+def _call_llm_with_timeout(adaptor, messages, timeout, model=None):
     """对 adaptor.stream() 的迭代包装超时保护"""
     result_queue = Queue()
 
     def worker():
         try:
-            for event in adaptor.stream(messages):
+            kwargs = {}
+            if model:
+                kwargs["model"] = model
+            for event in adaptor.stream(messages, **kwargs):
                 result_queue.put(("event", event))
             result_queue.put(("done", None))
         except Exception as e:
@@ -39,11 +42,11 @@ def _call_llm_with_timeout(adaptor, messages, timeout):
             raise TimeoutError(f"LLM call timeout after {timeout}s")
 
 
-def _call_llm(provider: str, system: str, user: str) -> str:
+def _call_llm(provider: str, system: str, user: str, model: str | None = None) -> str:
     adaptor = LLMAdaptor(provider=provider)
     messages = [SystemMessage(system), UserMessage(user)]
     try:
-        return _call_llm_with_timeout(adaptor, messages, CALL_LLM_TIMEOUT)
+        return _call_llm_with_timeout(adaptor, messages, CALL_LLM_TIMEOUT, model=model)
     except TimeoutError as e:
         print(f"  [LLM 调用超时] {e}", flush=True)
         return ""
@@ -59,7 +62,7 @@ def score_and_rank_modules(ctx: PipelineContext) -> None:
         module_list=module_list,
     )
 
-    response = _call_llm(ctx.provider, SCORER_SYSTEM, user_msg)
+    response = _call_llm(ctx.provider, SCORER_SYSTEM, user_msg, model=ctx.lite_model)
 
     try:
         scores = json.loads(_extract_json(response))

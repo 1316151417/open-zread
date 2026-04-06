@@ -1,20 +1,27 @@
 import json
+import re
 import threading
 from queue import Queue, Empty
 from provider.adaptor import LLMAdaptor
 from base.types import Event, EventType, ToolMessage, AssistantMessage
 
+# 过滤 content 中的 tool_use(...) 文本行（LLM 有时会将其输出为普通文字）
+_TOOL_CALL_RE = re.compile(r'^tool_use\([^)]*\).*$', re.MULTILINE)
+
 MAX_STEP_CNT = 30
 STREAM_TIMEOUT_PER_STEP = 120  # 每个步骤的最大等待秒数（120秒足够完成一次生成）
 
 
-def _stream_with_timeout(adaptor, messages, tools, timeout):
+def _stream_with_timeout(adaptor, messages, tools, model, timeout):
     """对 adaptor.stream() 的迭代包装超时保护"""
     result_queue = Queue()
 
     def worker():
         try:
-            for event in adaptor.stream(messages, tools=tools):
+            kwargs = {}
+            if model:
+                kwargs["model"] = model
+            for event in adaptor.stream(messages, tools=tools, **kwargs):
                 result_queue.put(("event", event))
             result_queue.put(("done", None))
         except Exception as e:
@@ -37,7 +44,7 @@ def _stream_with_timeout(adaptor, messages, tools, timeout):
             raise TimeoutError(f"LLM stream timeout after {timeout}s (no events received)")
 
 
-def stream(messages, tools, provider="anthropic", max_steps=MAX_STEP_CNT):
+def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP_CNT):
     adaptor = LLMAdaptor(provider=provider)
     react_finished = False
     step = 1
@@ -53,7 +60,7 @@ def stream(messages, tools, provider="anthropic", max_steps=MAX_STEP_CNT):
         tool_results = {}
 
         try:
-            stream_iter = _stream_with_timeout(adaptor, messages, tools, STREAM_TIMEOUT_PER_STEP)
+            stream_iter = _stream_with_timeout(adaptor, messages, tools, model, STREAM_TIMEOUT_PER_STEP)
         except TimeoutError as e:
             print(f"  [TIMEOUT] 步骤 {cur_step} LLM 调用超时: {e}", flush=True)
             yield Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step)
@@ -88,7 +95,9 @@ def stream(messages, tools, provider="anthropic", max_steps=MAX_STEP_CNT):
             yield Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step)
             break
 
-        yield Event(type=EventType.STEP_END, content=content, step=cur_step)
+        # 过滤 content 中的 tool_use(...) 文本（LLM 有时将其输出为普通文字）
+        filtered_content = _TOOL_CALL_RE.sub('', content).strip()
+        yield Event(type=EventType.STEP_END, content=filtered_content, step=cur_step)
         if not raw_tool_calls:
             react_finished = True
             break

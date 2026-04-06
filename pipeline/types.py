@@ -23,6 +23,9 @@ class PipelineContext:
     project_path: str
     project_name: str
     provider: str = "anthropic"
+    lite_model: str = "deepseek-chat"
+    pro_model: str = "deepseek-chat"
+    max_model: str = "deepseek-reasoner"
     max_sub_agents: int = 5
     max_sub_agent_steps: int = 15
     settings: dict = field(default_factory=dict)
