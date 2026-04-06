@@ -49,21 +49,42 @@ EXCLUDE_EXTENSIONS = {
     ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
     # 配置文件（无逻辑）
     ".properties", ".conf", ".cfg", ".ini",
+    # Python 项目配置（TOML/YAML/INI 格式）
+    ".toml", ".yaml", ".yml",
 }
 
 # ====== 排除文件名 ======
 EXCLUDE_NAMES = {
     # 系统文件
-    ".DS_Store", "Thumbs.db",
+    ".DS_Store", "Thumbs.db", ".DS_Store",
     # Lock 文件
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Gemfile.lock",
     "Cargo.lock", "go.sum", "poetry.lock", "uv.lock", "composer.lock",
+    # Python 依赖/项目配置文件
+    "requirements.txt", "requirements-dev.txt", "requirements-test.txt",
+    "requirements-prod.txt", "requirements-staging.txt",
+    "pyproject.toml", "setup.py", "setup.cfg", "MANIFEST.in",
+    "Pipfile", "Pipfile.lock", "pyproject.toml",
+    # 包管理
+    "Makefile", "CMakeLists.txt", "tox.ini", "noxfile.py",
+    # 测试配置
+    "pytest.ini", ".pytest.ini", "conftest.py", "tox.ini",
+    # Lint 配置
+    ".flake8", ".pylintrc", "mypy.ini", ".pylintrc",
+    ".ruff.toml", ".ruff_cache",
     # 环境配置
     ".env", ".env.local", ".env.production", ".env.development",
-    # 编辑器
+    ".env.example", ".env.template",
+    # 编辑器配置
     ".editorconfig", ".prettierrc", ".eslintrc", ".babelrc",
+    ".prettierrc.js", ".prettierrc.json", ".prettierrc.yaml",
+    ".eslintrc.js", ".eslintrc.json", ".eslintrc.yaml",
+    ".eslintrc.cjs", ".babelrc.js",
+    # Git
+    ".gitignore", ".gitattributes", ".gitmodules",
     # 其他
-    "LICENSE", "COPYING", "NOTICE",
+    "LICENSE", "COPYING", "NOTICE", "CHANGELOG", "CONTRIBUTING",
+    "AUTHORS", "MAINTAINERS", "CODEOWNERS",
 }
 
 # ====== 测试/构建文件名模式 ======
@@ -81,10 +102,11 @@ EXCLUDE_PATTERNS = [
     re.compile(r"^Makefile"),        # Makefile, Makefile.am
     re.compile(r"^Dockerfile"),      # Dockerfile
     re.compile(r"\.dockerfile$", re.IGNORECASE),  # foo.dockerfile
-    re.compile(r"^__init__\.py$"),   # 空的 __init__.py
     re.compile(r"^setup\.py$"),      # setup.py (打包配置)
     re.compile(r"^setup\.cfg$"),     # setup.cfg
     re.compile(r"\.config\."),       # webpack.config.js, vite.config.ts
+    re.compile(r"^__init__\.py$"),   # __init__.py (包标记，通常无逻辑)
+    re.compile(r"^__init__\."),      # __init__.py 或其他 __init__ 文件
 ]
 
 # ====== 需要排除的路径段（目录级别） ======
@@ -105,8 +127,8 @@ TEXT_EXTENSIONS = {
     ".erl", ".dart", ".zig", ".nim",
     # Web
     ".html", ".css", ".scss", ".less", ".vue", ".svelte",
-    # 标记语言
-    ".xml", ".yaml", ".yml", ".toml", ".json",
+    # 标记语言（.toml/.yaml/.yml 已移至 EXCLUDE_EXTENSIONS）
+    ".xml", ".json",
     ".md", ".rst", ".txt",
     # 脚本
     ".sh", ".bash", ".zsh", ".fish", ".ps1", ".bat",
