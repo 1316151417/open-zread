@@ -25,6 +25,7 @@ class PipelineContext:
     provider: str = "anthropic"
     max_sub_agents: int = 5
     max_sub_agent_steps: int = 15
+    settings: dict = field(default_factory=dict)
 
     # Stage 1: scanner output
     all_files: list[FileInfo] = field(default_factory=list)

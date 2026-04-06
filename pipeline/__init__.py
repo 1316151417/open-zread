@@ -1,5 +1,7 @@
 import os
+from datetime import datetime
 
+from settings import load_settings
 from pipeline.types import PipelineContext
 from pipeline.scanner import scan_project
 from pipeline.llm_filter import llm_filter_files
@@ -11,12 +13,17 @@ from pipeline.aggregator import aggregate_reports
 
 def run_pipeline(
     project_path: str,
-    provider: str = "anthropic",
-    max_sub_agents: int = 5,
-    max_sub_agent_steps: int = 15,
+    settings_path: str | None = None,
 ) -> str:
+    # 加载配置
+    settings = load_settings(settings_path)
+
     project_path = os.path.abspath(project_path)
     project_name = os.path.basename(project_path)
+
+    provider = settings["provider"]
+    max_sub_agents = settings["max_sub_agents"]
+    max_sub_agent_steps = settings["max_sub_agent_steps"]
 
     ctx = PipelineContext(
         project_path=project_path,
@@ -24,10 +31,12 @@ def run_pipeline(
         provider=provider,
         max_sub_agents=max_sub_agents,
         max_sub_agent_steps=max_sub_agent_steps,
+        settings=settings,
     )
 
-    # 在执行目录创建 report/
-    report_dir = os.path.join(os.getcwd(), "report")
+    # 创建报告目录: /report/{项目名}/{时间戳}/
+    timestamp = datetime.now().strftime("%Y%m%d%H%M")
+    report_dir = os.path.join(os.getcwd(), "report", project_name, timestamp)
     os.makedirs(report_dir, exist_ok=True)
     print(f"报告输出目录: {report_dir}")
 
@@ -86,5 +95,6 @@ def run_pipeline(
 
     print(f"\n{'='*60}")
     print(f"分析完成！共生成 {len(ctx.selected_modules)} 份模块报告 + 1 份最终报告")
+    print(f"报告目录: {report_dir}")
     print(f"{'='*60}")
     return ctx.final_report
