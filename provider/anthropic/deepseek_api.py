@@ -7,7 +7,7 @@ client = anthropic.Anthropic(
 )
 
 
-def call(messages, model="deepseek-chat", max_tokens=4096, **kwargs):
+def call(messages, model="deepseek-chat", max_tokens=16384, **kwargs):
     return client.messages.create(
         model=model,
         messages=messages,
@@ -16,7 +16,7 @@ def call(messages, model="deepseek-chat", max_tokens=4096, **kwargs):
     )
 
 
-def call_stream(messages, model="deepseek-chat", max_tokens=4096, **kwargs):
+def call_stream(messages, model="deepseek-chat", max_tokens=16384, **kwargs):
     return client.messages.create(
         model=model,
         messages=messages,

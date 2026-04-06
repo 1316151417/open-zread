@@ -2,15 +2,20 @@ import json
 from base.types import EventType, Event, Tool, normalize_messages
 from log import logger
 
+MAX_CONTEXT_CHARS = 200_000  # 约 50K tokens，超过则压缩
+COMPRESS_KEEP_RECENT = 6     # 保留最近 N 条消息不压缩
+
 
 class LLMAdaptor:
     def __init__(self, provider="anthropic"):
         if provider == "openai":
-            from .openai.deepseek_api import call_stream
+            from .openai.deepseek_api import call_stream, call
             self._call_stream = call_stream
+            self._call = call
         elif provider == "anthropic":
-            from .anthropic.deepseek_api import call_stream
+            from .anthropic.deepseek_api import call_stream, call
             self._call_stream = call_stream
+            self._call = call
         else:
             raise ValueError(f"Unknown provider: {provider}")
 
@@ -19,6 +24,9 @@ class LLMAdaptor:
     def stream(self, messages, tools=None, **kwargs):
         messages = normalize_messages(messages)
         params = {}
+
+        # 上下文压缩
+        messages = self._compress_if_needed(messages)
 
         if self._provider == "anthropic":
             messages = self._convert_messages_anthropic(messages, params)
@@ -39,6 +47,104 @@ class LLMAdaptor:
             yield from self._stream_openai(messages, params, **kwargs)
         else:
             yield from self._stream_anthropic(messages, params, **kwargs)
+
+    def _compress_if_needed(self, messages) -> list:
+        """检查消息总长度，超过阈值时压缩历史消息"""
+        total_chars = sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
+
+        if total_chars <= MAX_CONTEXT_CHARS:
+            return messages
+
+        print(f"\n  [上下文压缩] {total_chars} 字符超过阈值 {MAX_CONTEXT_CHARS}，开始压缩...")
+
+        # 分离 system 消息和普通消息
+        system_msgs = [m for m in messages if m.get("role") == "system"]
+        other_msgs = [m for m in messages if m.get("role") != "system"]
+
+        # 保留最近几轮不压缩
+        if len(other_msgs) <= COMPRESS_KEEP_RECENT:
+            return messages
+
+        to_compress = other_msgs[:-COMPRESS_KEEP_RECENT]
+        to_keep = other_msgs[-COMPRESS_KEEP_RECENT:]
+
+        # 用 LLM 同步调用压缩历史
+        summary = self._summarize_messages(to_compress)
+
+        # 构建压缩后的消息列表
+        compressed = list(system_msgs)
+        if summary:
+            compressed.append({
+                "role": "user",
+                "content": f"[以下是之前对话的摘要]\n{summary}",
+            })
+            compressed.append({
+                "role": "assistant",
+                "content": "好的，我已了解之前的分析内容，继续进行。",
+            })
+        compressed.extend(to_keep)
+
+        new_chars = sum(len(json.dumps(m, ensure_ascii=False)) for m in compressed)
+        print(f"  [上下文压缩] 完成：{total_chars} → {new_chars} 字符")
+
+        return compressed
+
+    def _summarize_messages(self, messages: list) -> str:
+        """用同步 LLM 调用总结消息历史"""
+        from prompt.pipeline_prompts import COMPRESS_USER
+
+        conversation_text = self._format_messages_for_summary(messages)
+        if not conversation_text.strip():
+            return ""
+
+        user_msg = COMPRESS_USER.format(conversation=conversation_text[:30000])
+
+        try:
+            if self._provider == "anthropic":
+                response = self._call(
+                    messages=[{"role": "user", "content": user_msg}],
+                    max_tokens=2048,
+                )
+                return response.content[0].text
+            else:
+                response = self._call(
+                    messages=[{"role": "user", "content": user_msg}],
+                )
+                return response.content
+        except Exception as e:
+            print(f"  [上下文压缩] 压缩失败: {e}")
+            return ""
+
+    def _format_messages_for_summary(self, messages: list) -> str:
+        """将消息格式化为文本用于总结"""
+        lines = []
+        for m in messages:
+            role = m.get("role", "?")
+            content = m.get("content", "")
+
+            if role == "assistant":
+                # 提取文本内容
+                if isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict):
+                            if block.get("type") == "text":
+                                lines.append(f"[助手]: {block['text'][:500]}")
+                            elif block.get("type") == "tool_use":
+                                lines.append(f"[助手调用工具]: {block.get('name', '?')}({json.dumps(block.get('input', {}), ensure_ascii=False)[:200]})")
+                elif content:
+                    lines.append(f"[助手]: {str(content)[:500]}")
+            elif role == "user":
+                if isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "tool_result":
+                            lines.append(f"[工具结果]: {str(block.get('content', ''))[:500]}")
+                elif content:
+                    lines.append(f"[用户]: {str(content)[:500]}")
+            elif role == "tool":
+                result = m.get("tool_result") or m.get("tool_error") or ""
+                lines.append(f"[工具结果({m.get('tool_name', '?')})]: {str(result)[:500]}")
+
+        return "\n".join(lines)
 
     def _convert_messages_openai(self, messages):
         converted = []
@@ -187,6 +293,8 @@ class LLMAdaptor:
     def _stream_anthropic(self, messages, params, **kwargs):
         tools = {}
         block_types = {}
+        stop_reason = None
+        usage = None
         for event in self._call_stream(messages, **params, **kwargs):
             # 开始事件
             if event.type == "message_start":

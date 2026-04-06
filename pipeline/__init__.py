@@ -26,33 +26,65 @@ def run_pipeline(
         max_sub_agent_steps=max_sub_agent_steps,
     )
 
-    # Stage 1: Scan + basic filter
-    print(f"Scanning project: {project_name}")
+    # 在执行目录创建 report/
+    report_dir = os.path.join(os.getcwd(), "report")
+    os.makedirs(report_dir, exist_ok=True)
+    print(f"报告输出目录: {report_dir}")
+
+    # ====== 阶段 1: 扫描项目 ======
+    print(f"\n{'='*60}")
+    print(f"阶段 1/6: 扫描项目 [{project_name}]")
+    print(f"{'='*60}")
     scan_project(ctx)
-    print(f"  Found {len(ctx.all_files)} files, {len(ctx.filtered_files)} after basic filter")
+    print(f"  扫描到 {len(ctx.all_files)} 个文件")
+    print(f"  基础过滤后剩余 {len(ctx.filtered_files)} 个文件")
 
-    # Stage 2: LLM filter
-    print("LLM filtering files...")
+    # ====== 阶段 2: LLM 智能过滤 ======
+    print(f"\n{'='*60}")
+    print(f"阶段 2/6: LLM 智能过滤")
+    print(f"{'='*60}")
     llm_filter_files(ctx)
-    print(f"  {len(ctx.important_files)} files deemed important")
+    print(f"  LLM 评估后保留 {len(ctx.important_files)} 个重要文件")
 
-    # Stage 3: Decompose into modules
-    print("Decomposing into modules...")
+    # ====== 阶段 3: 模块拆分 ======
+    print(f"\n{'='*60}")
+    print(f"阶段 3/6: 模块拆分")
+    print(f"{'='*60}")
     decompose_into_modules(ctx)
-    print(f"  Identified {len(ctx.modules)} modules")
+    print(f"  识别到 {len(ctx.modules)} 个模块:")
+    for m in ctx.modules:
+        print(f"    - {m.name}: {m.description} ({len(m.files)} 个文件)")
 
-    # Stage 4: Score and rank
-    print("Scoring modules...")
+    # ====== 阶段 4: 模块打分排序 ======
+    print(f"\n{'='*60}")
+    print(f"阶段 4/6: 模块重要性打分")
+    print(f"{'='*60}")
     score_and_rank_modules(ctx)
-    print(f"  Selected top {len(ctx.selected_modules)} modules for deep research")
+    print(f"  模块评分（从高到低）:")
+    for m in ctx.ranked_modules:
+        marker = " ★" if m in ctx.selected_modules else ""
+        print(f"    - {m.name}: {m.importance_score:.0f}分{marker}")
+    print(f"  选择前 {len(ctx.selected_modules)} 个模块进行深度研究")
 
-    # Stage 5: Research each module
-    print("Starting deep research...")
-    research_modules(ctx)
+    # ====== 阶段 5: 子模块深度研究 ======
+    print(f"\n{'='*60}")
+    print(f"阶段 5/6: 子模块深度研究")
+    print(f"{'='*60}")
+    research_modules(ctx, report_dir)
 
-    # Stage 6: Aggregate reports
-    print("Aggregating final report...")
+    # ====== 阶段 6: 汇总最终报告 ======
+    print(f"\n{'='*60}")
+    print(f"阶段 6/6: 汇总最终报告")
+    print(f"{'='*60}")
     aggregate_reports(ctx)
 
-    print("Done!")
+    # 写入最终报告
+    final_path = os.path.join(report_dir, f"最终报告-{ctx.project_name}.md")
+    with open(final_path, "w", encoding="utf-8") as f:
+        f.write(ctx.final_report)
+    print(f"\n最终报告已写入: {final_path}")
+
+    print(f"\n{'='*60}")
+    print(f"分析完成！共生成 {len(ctx.selected_modules)} 份模块报告 + 1 份最终报告")
+    print(f"{'='*60}")
     return ctx.final_report

@@ -1,46 +1,119 @@
 import os
+import re
 from pathlib import Path
 
 from pipeline.types import PipelineContext, FileInfo
 
+# ====== 排除目录 ======
 EXCLUDE_DIRS = {
+    # 包管理/构建产物
     "node_modules", ".git", "__pycache__", ".venv", "venv", "dist", "build",
     ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache",
-    ".idea", ".vscode", ".claude",
     "target", "bin", "obj", "out",
     "vendor", "Pods", ".gradle", ".dart_tool",
+    # 测试目录
+    "test", "tests", "spec", "specs", "__tests__", "testdata", "test_data", "fixtures",
+    # 文档目录
+    "docs", "doc", "documentation", "wiki",
+    # 示例/演示
+    "examples", "example", "demo", "demos", "samples", "sample",
+    # CI/CD
+    ".github", ".gitlab", ".circleci", "jenkins",
+    # 数据库迁移/种子
+    "migrations", "seeds",
+    # IDE/编辑器
+    ".idea", ".vscode", ".claude", ".eclipse", ".settings",
 }
 
+# ====== 排除扩展名 ======
 EXCLUDE_EXTENSIONS = {
+    # Python 编译
     ".pyc", ".pyo", ".so", ".dll", ".dylib", ".exe",
+    # 图片
     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp",
-    ".mp3", ".mp4", ".wav", ".avi", ".mov",
-    ".zip", ".tar", ".gz", ".rar", ".7z",
-    ".woff", ".woff2", ".ttf", ".eot",
+    ".tiff", ".tif", ".raw", ".psd", ".ai",
+    # 音视频
+    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".wmv", ".flv", ".mkv",
+    # 压缩包
+    ".zip", ".tar", ".gz", ".rar", ".7z", ".bz2", ".xz", ".lzma", ".cab",
+    # 字体
+    ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    # 数据库
     ".db", ".sqlite",
+    # Java 编译产物
     ".class", ".jar", ".war",
+    # 数据文件
     ".npy", ".npz", ".parquet", ".pkl", ".pickle",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+    ".csv", ".tsv",
+    # Office 文档
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    # 配置文件（无逻辑）
+    ".properties", ".conf", ".cfg", ".ini",
 }
 
+# ====== 排除文件名 ======
 EXCLUDE_NAMES = {
+    # 系统文件
     ".DS_Store", "Thumbs.db",
+    # Lock 文件
     "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "Gemfile.lock",
-    "Cargo.lock", "go.sum", "poetry.lock", "uv.lock",
+    "Cargo.lock", "go.sum", "poetry.lock", "uv.lock", "composer.lock",
+    # 环境配置
+    ".env", ".env.local", ".env.production", ".env.development",
+    # 编辑器
+    ".editorconfig", ".prettierrc", ".eslintrc", ".babelrc",
+    # 其他
+    "LICENSE", "COPYING", "NOTICE",
 }
 
+# ====== 测试/构建文件名模式 ======
+EXCLUDE_PATTERNS = [
+    re.compile(r"^test_"),           # test_foo.py
+    re.compile(r"_test\."),          # foo_test.py / foo_test.go
+    re.compile(r"Test\."),           # FooTest.py / FooTest.java
+    re.compile(r"Tests\."),          # FooTests.java
+    re.compile(r"TestCase\."),       # FooTestCase.java
+    re.compile(r"\.spec\."),         # foo.spec.ts / foo.spec.js
+    re.compile(r"\.test\."),         # foo.test.ts / foo.test.js
+    re.compile(r"\.stories\."),      # foo.stories.tsx
+    re.compile(r"\.mock\."),         # foo.mock.ts
+    re.compile(r"conftest\."),       # pytest conftest.py
+    re.compile(r"^Makefile"),        # Makefile, Makefile.am
+    re.compile(r"^Dockerfile"),      # Dockerfile
+    re.compile(r"\.dockerfile$", re.IGNORECASE),  # foo.dockerfile
+    re.compile(r"^__init__\.py$"),   # 空的 __init__.py
+    re.compile(r"^setup\.py$"),      # setup.py (打包配置)
+    re.compile(r"^setup\.cfg$"),     # setup.cfg
+    re.compile(r"\.config\."),       # webpack.config.js, vite.config.ts
+]
+
+# ====== 需要排除的路径段（目录级别） ======
+EXCLUDE_PATH_SEGMENTS = {
+    "test", "tests", "spec", "specs", "__tests__",
+    "docs", "doc", "documentation",
+    "examples", "example", "demo", "demos", "samples", "sample",
+    "migrations", "fixtures", "testdata", "test_data",
+}
+
+# ====== 文本文件扩展名（用于 is_text 判断） ======
 TEXT_EXTENSIONS = {
+    # 编程语言
     ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".kt", ".kts",
     ".go", ".rs", ".rb", ".php", ".c", ".cpp", ".h", ".hpp",
-    ".cs", ".swift", ".m", ".mm",
+    ".cs", ".swift", ".m", ".mm", ".scala", ".clj", ".hs",
+    ".r", ".R", ".m", ".mm", ".lua", ".pl", ".ex", ".exs",
+    ".erl", ".dart", ".zig", ".nim",
+    # Web
     ".html", ".css", ".scss", ".less", ".vue", ".svelte",
-    ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf",
-    ".xml", ".proto", ".graphql", ".gql",
-    ".md", ".rst", ".txt", ".csv",
+    # 标记语言
+    ".xml", ".yaml", ".yml", ".toml", ".json",
+    ".md", ".rst", ".txt",
+    # 脚本
     ".sh", ".bash", ".zsh", ".fish", ".ps1", ".bat",
-    ".dockerfile", ".makefile",
-    ".sql", ".prisma",
-    ".gitignore", ".env", ".editorconfig",
+    # 数据库
+    ".sql", ".prisma", ".graphql", ".gql", ".proto",
+    # 其他
+    ".gitignore", "Dockerfile",
 }
 
 
@@ -48,7 +121,6 @@ def scan_project(ctx: PipelineContext) -> None:
     root = Path(ctx.project_path)
 
     all_files = []
-    tree_entries = []
 
     for dirpath, dirnames, filenames in os.walk(root):
         # 过滤排除的目录（原地修改 dirnames 影响 os.walk 后续遍历）
@@ -75,7 +147,6 @@ def scan_project(ctx: PipelineContext) -> None:
 
             fi = FileInfo(path=rel_path, size=size, extension=ext, is_text=is_text)
             all_files.append(fi)
-            tree_entries.append(fi)
 
     ctx.all_files = all_files
     ctx.tree_text = _build_tree_text(ctx.project_name, all_files)
@@ -124,15 +195,32 @@ def _format_size(size: int) -> str:
 
 def _is_important_file(f: FileInfo) -> bool:
     name = os.path.basename(f.path)
+
+    # 文件名精确排除
     if name in EXCLUDE_NAMES:
         return False
+
+    # 扩展名排除
     if f.extension in EXCLUDE_EXTENSIONS:
         return False
+
+    # 非文本文件排除
     if not f.is_text:
         return False
-    # 跳过空文件
+
+    # 空文件排除
     if f.size == 0:
         return False
+
+    # 文件名模式排除（测试文件、构建文件等）
+    if any(pat.match(name) for pat in EXCLUDE_PATTERNS):
+        return False
+
+    # 路径中的目录段排除（如 src/test/ 下的文件）
+    parts = Path(f.path).parts
+    if any(p in EXCLUDE_PATH_SEGMENTS for p in parts):
+        return False
+
     return True
 
 

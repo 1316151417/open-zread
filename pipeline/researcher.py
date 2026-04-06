@@ -1,3 +1,5 @@
+import os
+
 from base.types import EventType, SystemMessage, UserMessage
 from agent.react_agent import stream as react_stream
 from pipeline.types import PipelineContext, Module
@@ -6,14 +8,15 @@ from tool.fs_tool import set_project_root, read_file, list_directory, glob_patte
 from log.printer import print_event
 
 
-def research_modules(ctx: PipelineContext) -> None:
+def research_modules(ctx: PipelineContext, report_dir: str) -> None:
     set_project_root(ctx.project_path)
     tools = [read_file, list_directory, glob_pattern, grep_content]
 
+    total = len(ctx.selected_modules)
     for i, module in enumerate(ctx.selected_modules):
         print(f"\n{'='*60}")
-        print(f"Researching module {i+1}/{len(ctx.selected_modules)}: {module.name}")
-        print(f"  Files: {', '.join(module.files)}")
+        print(f"正在研究模块 [{i+1}/{total}]: {module.name}")
+        print(f"  文件: {', '.join(module.files)}")
         print(f"{'='*60}")
 
         messages = _build_sub_agent_messages(ctx, module)
@@ -26,7 +29,12 @@ def research_modules(ctx: PipelineContext) -> None:
         )
 
         _collect_sub_agent_output(events, module)
-        print(f"\n  -> Report collected ({len(module.research_report)} chars)")
+
+        # 每个模块完成后立即写入报告
+        report_path = os.path.join(report_dir, f"模块分析报告-{module.name}.md")
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(module.research_report)
+        print(f"\n  -> 报告已写入 ({len(module.research_report)} 字符): {report_path}")
 
 
 def _build_sub_agent_messages(ctx: PipelineContext, module: Module) -> list:
@@ -49,23 +57,31 @@ def _collect_sub_agent_output(events, module: Module) -> None:
     """
     step_contents = {}
     had_tool_calls_on_last_step = False
+    step_num = 0
 
     for event in events:
-        print_event(event)
+        # print_event(event)
+        if event.type == EventType.STEP_START:
+            had_tool_calls_on_last_step = False
+            step_num = event.step
         if event.type == EventType.STEP_END and event.content:
             step_contents[event.step] = event.content
+            print(f"  [步骤 {step_num} 完成，输出 {len(event.content)} 字符]")
         if event.type == EventType.TOOL_CALL:
             had_tool_calls_on_last_step = True
-        elif event.type == EventType.STEP_START:
-            had_tool_calls_on_last_step = False
+            print(f"  [调用工具: {event.tool_name}]")
+        if event.type == EventType.TOOL_CALL_SUCCESS:
+            result_preview = (event.tool_result or "")[:100]
+            print(f"  [工具结果: {result_preview}...]")
+        if event.type == EventType.TOOL_CALL_FAILED:
+            print(f"  [工具失败: {event.tool_error}]")
 
     if not step_contents:
-        module.research_report = f"(No report generated for module: {module.name})"
+        module.research_report = f"# 模块 {module.name} 分析报告\n\n未能生成报告。"
         return
 
     if not had_tool_calls_on_last_step:
-        # 自然结束 — 取最后一步
         module.research_report = list(step_contents.values())[-1]
     else:
-        # 超时结束 — 取最长的 content（最有可能是报告主体）
+        # 超时结束 — 取最长的 content
         module.research_report = max(step_contents.values(), key=len)
