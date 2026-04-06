@@ -5,12 +5,12 @@ from base.types import Event, EventType, ToolMessage, AssistantMessage
 MAX_STEP_CNT = 30
 
 
-def stream(messages, tools, provider="anthropic"):    
+def stream(messages, tools, provider="anthropic", max_steps=MAX_STEP_CNT):
     adaptor = LLMAdaptor(provider=provider)
     react_finished = False
     step = 1
 
-    while (not react_finished) and step <= MAX_STEP_CNT:
+    while (not react_finished) and step <= max_steps:
         cur_step = step
         yield Event(type=EventType.STEP_START, step=cur_step)
         step = step + 1

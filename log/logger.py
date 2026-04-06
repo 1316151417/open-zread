@@ -11,6 +11,8 @@ class Logger:
 
         print(f"{start}{msg}", end=end, flush=flush)
         for key, value in kwargs.items():
+            if value is None:
+                continue
             if key == "messages":
                 print(f"  {key}:")
                 for i, m in enumerate(value):
