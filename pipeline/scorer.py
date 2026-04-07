@@ -11,9 +11,9 @@ from monitor.events import PipelineEvent, PipelineEventType
 
 def score_and_rank_modules(ctx: PipelineContext) -> None:
     bus = get_event_bus(server_url=ctx.server_url)
-    def pub(et, stage, data, step=1):
+    def pub(et, stage, data, step=1, **kwargs):
         if ctx.run_id:
-            bus.publish(PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step))
+            bus.publish(PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step, **kwargs))
 
     pub(PipelineEventType.STAGE_START, "scorer", {"stage_index": 4})
 
@@ -26,10 +26,10 @@ def score_and_rank_modules(ctx: PipelineContext) -> None:
 
     pub(PipelineEventType.LLM_CALL, "scorer", {
         "model": ctx.lite_model,
-        "prompt_preview": user_msg[:200],
+        "prompt": user_msg,
+        "response": response,
         "duration_ms": duration_ms,
-        "response_len": len(response),
-    })
+    }, operation_type="llm_call")
 
     try:
         scores = json.loads(extract_json(response))
@@ -43,10 +43,16 @@ def score_and_rank_modules(ctx: PipelineContext) -> None:
     ctx.selected_modules = ctx.ranked_modules[: ctx.max_sub_agents]
 
     module_scores = {m.name: m.importance_score for m in ctx.modules}
+    selected_names = {m.name for m in ctx.selected_modules}
     pub(PipelineEventType.STAGE_SCORE_COMPLETE, "scorer", {
         "module_scores": module_scores,
         "selected_count": len(ctx.selected_modules),
-    })
+        "selected_modules": [m.name for m in ctx.selected_modules],
+        "all_modules_ranked": [
+            {"name": m.name, "score": m.importance_score, "selected": m.name in selected_names}
+            for m in ctx.ranked_modules
+        ],
+    }, operation_type="data_output")
     pub(PipelineEventType.STAGE_END, "scorer", {
         "output_summary": f"scored {len(ctx.modules)} modules, selected top {len(ctx.selected_modules)}"
     })

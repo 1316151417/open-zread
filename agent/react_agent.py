@@ -14,6 +14,30 @@ MAX_STEP_CNT = 30
 STREAM_TIMEOUT_PER_STEP = 120
 
 
+def _format_messages_for_monitor(messages):
+    """Format conversation messages for monitoring display."""
+    parts = []
+    for msg in messages:
+        name = type(msg).__name__
+        if name == 'SystemMessage':
+            parts.append(f"[System]\n{msg.content}")
+        elif name == 'UserMessage':
+            parts.append(f"[User]\n{msg.content}")
+        elif name == 'AssistantMessage':
+            text = msg.content or ""
+            if getattr(msg, 'tool_calls', None):
+                tc_names = [tc.get("name", "?") for tc in msg.tool_calls]
+                text += f"\n[调用工具: {', '.join(tc_names)}]"
+            parts.append(f"[Assistant]\n{text}")
+        elif name == 'ToolMessage':
+            result = str(getattr(msg, 'tool_result', ''))[:500] if getattr(msg, 'tool_result', None) else "(空)"
+            error = getattr(msg, 'tool_error', None)
+            if error:
+                result = f"错误: {error}"
+            parts.append(f"[工具结果: {getattr(msg, 'tool_name', '?')}]\n{result}")
+    return "\n\n".join(parts)
+
+
 def _stream_with_timeout(adaptor, messages, tools, model, timeout):
     """对 adaptor.stream() 的迭代包装超时保护。"""
     result_queue = Queue()
@@ -68,15 +92,28 @@ def _execute_tool(tool, tool_arguments: str):
         return None, str(e)
 
 
-def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP_CNT):
-    """ReAct stream generator: yields events for each step."""
+def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP_CNT, event_handler=None):
+    """
+    ReAct stream generator: yields events for each step.
+
+    Args:
+        event_handler: Optional callback(event) called for every event.
+                       Allows forwarding events to an external monitor.
+    """
+    def _emit(event):
+        if event_handler:
+            event_handler(event)
+
     adaptor = LLMAdaptor(provider=provider)
     react_finished = False
     step = 1
 
     while (not react_finished) and step <= max_steps:
         cur_step = step
-        yield Event(type=EventType.STEP_START, step=cur_step)
+        # Capture messages summary for monitoring (input to this LLM call)
+        msg_summary = _format_messages_for_monitor(messages)
+        _emit(Event(type=EventType.STEP_START, step=cur_step, raw={"messages": msg_summary}))
+        yield Event(type=EventType.STEP_START, step=cur_step, raw={"messages": msg_summary})
         step = step + 1
 
         content = ""
@@ -88,33 +125,44 @@ def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP
             stream_iter = _stream_with_timeout(adaptor, messages, tools, model, STREAM_TIMEOUT_PER_STEP)
         except TimeoutError as e:
             print(f"  [TIMEOUT] 步骤 {cur_step} LLM 调用超时: {e}", flush=True)
+            _emit(Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step))
             yield Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step)
             break
 
         try:
             for event in stream_iter:
-                yield event
                 if event.type == EventType.THINKING_DELTA:
                     thinking += event.content or ""
                 elif event.type == EventType.CONTENT_DELTA:
                     content += event.content or ""
                 elif event.type == EventType.TOOL_CALL:
                     raw_tool_calls.append(event.raw)
+                    # Emit original TOOL_CALL so monitor sees LLM decision before execution
+                    _emit(event)
                     tool = next((t for t in tools if t.name == event.tool_name), None)
                     if tool is None:
                         tool_results[event.tool_id] = {"result": None, "error": f"Tool '{event.tool_name}' not found"}
-                        yield Event(type=EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_error=f"Tool '{event.tool_name}' not found")
+                        e2 = Event(type=EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_error=f"Tool '{event.tool_name}' not found")
+                        _emit(e2); yield e2
                     else:
                         result, error = _execute_tool(tool, event.tool_arguments)
                         tool_results[event.tool_id] = {"result": result, "error": error}
-                        yield Event(type=EventType.TOOL_CALL_SUCCESS if not error else EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_result=result, tool_error=error)
+                        e2 = Event(type=EventType.TOOL_CALL_SUCCESS if not error else EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_result=result, tool_error=error)
+                        _emit(e2); yield e2
+                    continue
+                else:
+                    _emit(event)
+                    yield event
         except TimeoutError as e:
             print(f"  [TIMEOUT] 步骤 {cur_step} LLM 调用超时: {e}", flush=True)
+            _emit(Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step))
             yield Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step)
             break
 
         filtered_content = TOOL_CALL_RE.sub('', content).strip()
-        yield Event(type=EventType.STEP_END, content=filtered_content, step=cur_step)
+        e_end = Event(type=EventType.STEP_END, content=filtered_content, step=cur_step,
+                      raw={"full_content": content, "messages": msg_summary})
+        _emit(e_end); yield e_end
 
         if not raw_tool_calls:
             react_finished = True

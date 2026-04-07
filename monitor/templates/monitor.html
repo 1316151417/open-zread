@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor - CodeDeepResearch</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2128;
+  --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+  --blue: #58a6ff; --green: #3fb950; --red: #f85149;
+  --yellow: #e3b341; --purple: #a78bfa; --orange: #f0883e;
+  --pink: #db61a2; --cyan: #39d353;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Nav ── */
+#nav { display: flex; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; height: 48px; gap: 0; }
+#nav .brand { font-size: 15px; font-weight: 700; color: var(--blue); margin-right: 32px; }
+.nav-tab { padding: 0 16px; height: 48px; display: flex; align-items: center; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+.nav-tab:hover { color: var(--text); background: var(--surface2); }
+.nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+#connection { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+.dot.live { background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+#stats { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-left: 16px; padding-left: 16px; border-left: 1px solid var(--border); }
+
+/* ── Layout ── */
+#layout { display: grid; grid-template-columns: 240px 1fr; height: calc(100vh - 48px); }
+
+/* ── Sidebar: run list ── */
+#sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; }
+.sidebar-header { padding: 12px 12px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); position: sticky; top: 0; background: var(--surface); display: flex; justify-content: space-between; align-items: center; }
+.sidebar-header button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; }
+.sidebar-header button:hover { color: var(--text); }
+.run-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.1s; }
+.run-item:hover { background: var(--surface2); }
+.run-item.active { background: #1f6feb18; border-left: 2px solid var(--blue); }
+.run-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-meta { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.run-status { padding: 1px 6px; border-radius: 8px; font-size: 10px; }
+.run-status.running { background: #58a6ff22; color: var(--blue); }
+.run-status.completed { background: #3fb95022; color: var(--green); }
+.run-status.error { background: #f8514922; color: var(--red); }
+
+/* ── Main: 3-layer tree ── */
+#main { overflow-y: auto; padding: 16px; background: var(--bg); }
+#main-empty { text-align: center; margin-top: 80px; color: var(--muted); }
+#main-empty .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+
+/* Layer 1: Stage nodes */
+.stage-node { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+.stage-node[data-stage="scanner"] { border-left: 3px solid var(--green); }
+.stage-node[data-stage="llm_filter"] { border-left: 3px solid var(--blue); }
+.stage-node[data-stage="decomposer"] { border-left: 3px solid var(--orange); }
+.stage-node[data-stage="scorer"] { border-left: 3px solid var(--pink); }
+.stage-node[data-stage="researcher"] { border-left: 3px solid var(--yellow); }
+.stage-node[data-stage="aggregator"] { border-left: 3px solid var(--red); }
+
+.stage-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; user-select: none; }
+.stage-header:hover { background: var(--surface2); }
+.stage-toggle { color: var(--muted); font-size: 10px; transition: transform 0.15s; width: 16px; flex-shrink: 0; }
+.stage-toggle.open { transform: rotate(90deg); }
+.stage-icon { font-size: 16px; flex-shrink: 0; }
+.stage-label { font-size: 14px; font-weight: 600; }
+.stage-body { display: none; padding: 0 14px 14px; }
+
+/* Stage status badges */
+.stage-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+.stage-status.pending { background: #30363d44; color: var(--muted); }
+.stage-status.running { background: #58a6ff22; color: var(--blue); animation: pulse 2s infinite; }
+.stage-status.completed { background: #3fb95022; color: var(--green); }
+.stage-status.error { background: #f8514922; color: var(--red); }
+.stage-time { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+/* Layer 2: Sub-nodes */
+.sub-node { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; overflow: hidden; margin-left: 8px; }
+.sub-header { display: flex; align-items: center; gap: 6px; padding: 8px 12px; cursor: pointer; user-select: none; }
+.sub-header:hover { background: #2d333b; }
+.sub-toggle { color: var(--muted); font-size: 10px; transition: transform 0.15s; width: 14px; flex-shrink: 0; }
+.sub-toggle.open { transform: rotate(90deg); }
+.sub-label { font-size: 13px; font-weight: 500; }
+.sub-status { font-size: 10px; padding: 1px 6px; border-radius: 8px; }
+.sub-status.pending { background: #30363d44; color: var(--muted); }
+.sub-status.running { background: #58a6ff22; color: var(--blue); }
+.sub-status.completed { background: #3fb95022; color: var(--green); }
+.sub-status.error { background: #f8514922; color: var(--red); }
+.sub-body { display: none; padding: 0 12px 10px; }
+
+/* Layer 3: Detail cards */
+.detail-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; overflow: hidden; }
+.detail-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer; user-select: none; font-size: 12px; }
+.detail-header:hover { background: var(--surface); }
+.detail-toggle { color: var(--muted); font-size: 9px; transition: transform 0.15s; width: 12px; flex-shrink: 0; }
+.detail-toggle.open { transform: rotate(90deg); }
+.detail-body { display: none; padding: 6px 10px 10px; border-top: 1px solid var(--border); }
+
+/* Detail card type badges */
+.badge-llm { background: #58a6ff22; color: var(--blue); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.badge-tool { background: #f0883e22; color: var(--orange); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.badge-eval { background: #a78bfa22; color: var(--purple); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.badge-data { background: #3fb95022; color: var(--green); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.badge-step { background: #e3b34122; color: var(--yellow); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+.detail-meta { font-size: 11px; color: var(--muted); margin-left: auto; }
+.detail-title { font-size: 12px; font-weight: 500; }
+
+/* Code blocks */
+pre.full-data { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 8px; overflow-x: auto; font-size: 11px; line-height: 1.5; margin: 4px 0; white-space: pre-wrap; word-break: break-all; max-height: 600px; overflow-y: auto; }
+.code-label { font-size: 10px; color: var(--muted); margin: 6px 0 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* File lists */
+.file-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.file-tag { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px; font-size: 11px; color: var(--text); font-family: monospace; }
+
+/* Eval result */
+.eval-pass { color: var(--green); font-weight: 700; }
+.eval-fail { color: var(--red); font-weight: 700; }
+.eval-score { font-size: 18px; font-weight: 700; margin: 4px 0; }
+.eval-suggestions { margin-top: 6px; }
+.eval-suggestion { padding: 4px 8px; margin: 2px 0; background: var(--surface); border-radius: 4px; font-size: 11px; border-left: 2px solid var(--yellow); }
+
+/* Module table */
+.module-table { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 11px; }
+.module-table th { text-align: left; padding: 4px 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.module-table td { padding: 4px 8px; border: 1px solid var(--border); }
+.module-table tr.selected td { background: #3fb95011; }
+
+/* Score bar */
+.score-bar { height: 4px; border-radius: 2px; background: var(--border); width: 60px; display: inline-block; vertical-align: middle; }
+.score-fill { height: 100%; border-radius: 2px; background: var(--green); }
+
+/* Empty hint */
+.empty-hint { padding: 12px; color: var(--muted); font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="nav">
+  <div class="brand">CodeDeepResearch</div>
+  <div class="nav-tab active" onclick="location.href='/monitor'">Monitor</div>
+  <div class="nav-tab" onclick="location.href='/config'">Config</div>
+  <div class="nav-tab" onclick="location.href='/trigger'">Trigger</div>
+  <div id="connection">
+    <div class="dot" id="dot"></div>
+    <span id="conn-text">Disconnected</span>
+  </div>
+  <div id="stats">
+    <span id="stat-events">0 events</span>
+    <span id="stat-run"></span>
+  </div>
+</div>
+
+<div id="layout">
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <span>Run History</span>
+      <button onclick="loadRuns()">↻</button>
+    </div>
+    <div id="run-list"></div>
+  </div>
+  <div id="main">
+    <div id="main-empty">
+      <div class="icon">📊</div>
+      <div>Waiting for pipeline events...</div>
+      <div style="margin-top:8px;font-size:12px"><a href="/trigger">Trigger a run</a> or wait for a running pipeline</div>
+    </div>
+    <div id="tree-container" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────
+let eventCount = 0;
+let selectedRunId = null;
+let currentRunId = null;
+let runs = [];
+let expandedNodes = new Set();
+let renderPending = false;
+
+const STAGE_ORDER = ['scanner', 'llm_filter', 'decomposer', 'scorer', 'researcher', 'aggregator'];
+const STAGE_META = {
+  scanner:     { label: '硬编码过滤',   icon: '🔍' },
+  llm_filter:  { label: 'LLM 过滤',    icon: '🤖' },
+  decomposer:  { label: '模块拆分',     icon: '🧩' },
+  scorer:      { label: '模块评分',     icon: '📊' },
+  researcher:  { label: '模块深度研究', icon: '🔬' },
+  aggregator:  { label: '汇总报告',     icon: '📄' },
+};
+
+// 3-layer tree state
+let pipelineTree = { stages: {} };
+
+function initTree() {
+  pipelineTree = { stages: {} };
+  for (const s of STAGE_ORDER) {
+    pipelineTree.stages[s] = {
+      label: STAGE_META[s].label,
+      icon: STAGE_META[s].icon,
+      status: 'pending',
+      subNodes: {},
+      events: [],
+      startTime: null,
+      endTime: null,
+    };
+  }
+}
+initTree();
+
+// ─── SSE ─────────────────────────────────────────────────────────────────
+let es = null;
+let reconnectTimer = null;
+
+function connectSSE() {
+  es = new EventSource('/sse');
+  es.onopen = () => setConn(true);
+  es.onerror = () => { setConn(false); es.close(); reconnectTimer = setTimeout(connectSSE, 3000); };
+  es.onmessage = e => { try { handleEvent(JSON.parse(e.data)); } catch {} };
+}
+
+function setConn(live) {
+  document.getElementById('dot').className = 'dot' + (live ? ' live' : '');
+  document.getElementById('conn-text').textContent = live ? 'Live' : 'Disconnected';
+}
+
+function handleEvent(ev) {
+  eventCount++;
+  document.getElementById('stat-events').textContent = eventCount + ' events';
+
+  if (ev.type === 'run_started') {
+    currentRunId = ev.data ? ev.data.run_id : null;
+    document.getElementById('stat-run').textContent = (ev.data && ev.data.project_name) || currentRunId || '';
+    initTree();
+    showTree();
+    loadRuns();
+    scheduleRender();
+    return;
+  }
+  if (ev.type === 'run_finished') {
+    currentRunId = null;
+    document.getElementById('stat-run').textContent = '';
+    loadRuns();
+    return;
+  }
+  if (!ev.run_id || !ev.stage) return;
+
+  showTree();
+  routeEvent(ev);
+  scheduleRender();
+}
+
+connectSSE();
+
+function showTree() {
+  document.getElementById('main-empty').style.display = 'none';
+  document.getElementById('tree-container').style.display = 'block';
+}
+
+// ─── Event Routing ──────────────────────────────────────────────────────
+function routeEvent(ev) {
+  const stage = ev.stage;
+  if (!pipelineTree.stages[stage]) return;
+
+  const subId = ev.sub_node_id || null;
+
+  // Update stage status
+  if (ev.type === 'stage_start') {
+    pipelineTree.stages[stage].status = 'running';
+    pipelineTree.stages[stage].startTime = ev.timestamp;
+  } else if (ev.type === 'stage_end') {
+    pipelineTree.stages[stage].status = 'completed';
+    pipelineTree.stages[stage].endTime = ev.timestamp;
+  }
+
+  // Sub-node lifecycle
+  if (ev.type === 'sub_node_start') {
+    if (!pipelineTree.stages[stage].subNodes[subId]) {
+      pipelineTree.stages[stage].subNodes[subId] = {
+        label: ev.sub_node_name || subId,
+        status: 'running',
+        events: [],
+        startTime: ev.timestamp,
+        endTime: null,
+      };
+    } else {
+      pipelineTree.stages[stage].subNodes[subId].status = 'running';
+      pipelineTree.stages[stage].subNodes[subId].startTime = ev.timestamp;
+    }
+    return;
+  }
+  if (ev.type === 'sub_node_end') {
+    if (subId && pipelineTree.stages[stage].subNodes[subId]) {
+      pipelineTree.stages[stage].subNodes[subId].status = 'completed';
+      pipelineTree.stages[stage].subNodes[subId].endTime = ev.timestamp;
+    }
+    return;
+  }
+
+  // Route data event to correct bucket
+  if (subId) {
+    if (!pipelineTree.stages[stage].subNodes[subId]) {
+      pipelineTree.stages[stage].subNodes[subId] = {
+        label: ev.sub_node_name || subId,
+        status: 'running',
+        events: [],
+        startTime: null,
+        endTime: null,
+      };
+    }
+    pipelineTree.stages[stage].subNodes[subId].events.push(ev);
+  } else {
+    pipelineTree.stages[stage].events.push(ev);
+  }
+}
+
+// ─── Render ─────────────────────────────────────────────────────────────
+function scheduleRender() {
+  if (!renderPending) {
+    renderPending = true;
+    requestAnimationFrame(() => {
+      renderPending = false;
+      renderTree();
+    });
+  }
+}
+
+function renderTree() {
+  const container = document.getElementById('tree-container');
+  let html = '';
+
+  for (const stageName of STAGE_ORDER) {
+    const stage = pipelineTree.stages[stageName];
+    if (!stage) continue;
+    const hasSubs = Object.keys(stage.subNodes).length > 0;
+    const hasContent = hasSubs || stage.events.length > 0;
+    const expandKey = 'stage:' + stageName;
+    const isOpen = expandedNodes.has(expandKey);
+
+    html += `<div class="stage-node" data-stage="${stageName}">`;
+    html += `<div class="stage-header" onclick="toggleNode('${expandKey}', this)">`;
+    html += `<span class="stage-toggle ${isOpen ? 'open' : ''}">▶</span>`;
+    html += `<span class="stage-icon">${stage.icon}</span>`;
+    html += `<span class="stage-label">${esc(stage.label)}</span>`;
+    html += `<span class="stage-status ${stage.status}">${statusText(stage.status)}</span>`;
+    if (stage.startTime) {
+      html += `<span class="stage-time">${formatDuration(stage.startTime, stage.endTime)}</span>`;
+    }
+    html += `</div>`; // close stage-header
+
+    html += `<div class="stage-body" style="display:${isOpen ? 'block' : 'none'}">`;
+
+    if (hasSubs) {
+      // Layer 2: sub-nodes
+      for (const [subId, sub] of Object.entries(stage.subNodes)) {
+        const subKey = 'sub:' + stageName + ':' + subId;
+        const subOpen = expandedNodes.has(subKey);
+        html += `<div class="sub-node">`;
+        html += `<div class="sub-header" onclick="toggleNode('${subKey}', this)">`;
+        html += `<span class="sub-toggle ${subOpen ? 'open' : ''}">▶</span>`;
+        html += `<span class="sub-label">${esc(sub.label)}</span>`;
+        html += `<span class="sub-status ${sub.status}">${statusText(sub.status)}</span>`;
+        if (sub.startTime) {
+          html += `<span style="font-size:11px;color:var(--muted);margin-left:auto">${formatDuration(sub.startTime, sub.endTime)}</span>`;
+        }
+        html += `</div>`; // close sub-header
+        html += `<div class="sub-body" style="display:${subOpen ? 'block' : 'none'}">`;
+        html += renderEventList(sub.events);
+        html += `</div></div>`; // close sub-body, sub-node
+      }
+    }
+
+    // Stage-level events (not in sub-nodes)
+    if (stage.events.length > 0) {
+      html += renderEventList(stage.events);
+    } else if (!hasSubs) {
+      html += `<div class="empty-hint">等待数据...</div>`;
+    }
+
+    html += `</div></div>`; // close stage-body, stage-node
+  }
+
+  container.innerHTML = html;
+}
+
+function renderEventList(events) {
+  if (!events || !events.length) return '';
+  let html = '';
+  for (const ev of events) {
+    html += renderDetailCard(ev);
+  }
+  return html;
+}
+
+function renderDetailCard(ev) {
+  switch (ev.type) {
+    case 'llm_call': return renderLLMCard(ev);
+    case 'llm_tool_call': return renderToolCallCard(ev);
+    case 'llm_tool_result': return renderToolResultCard(ev);
+    case 'llm_tool_error': return renderToolErrorCard(ev);
+    case 'eval_result': return renderEvalCard(ev);
+    case 'llm_step_start': return renderStepStartCard(ev);
+    case 'llm_step_end': return renderStepEndCard(ev);
+    case 'stage_scan_complete':
+    case 'stage_filter_complete':
+    case 'stage_decompose_complete':
+    case 'stage_score_complete':
+      return renderDataCard(ev);
+    default:
+      return renderGenericCard(ev);
+  }
+}
+
+function renderLLMCard(ev) {
+  const d = ev.data || {};
+  const cardKey = 'detail:' + ev.event_id;
+  const isOpen = expandedNodes.has(cardKey);
+  const callType = d.call_type || '';
+  const phase = d.phase || '';
+  const label = callType === 'eval' ? '评估 LLM' : (phase ? `${phase === 'generate' ? '生成' : phase === 'final' ? '最终生成' : phase} LLM` : 'LLM 调用');
+  const round = d.round ? ` R${d.round}` : '';
+  const step = d.step ? ` Step ${d.step}` : '';
+
+  let html = `<div class="detail-card">`;
+  html += `<div class="detail-header" onclick="toggleNode('${cardKey}', this)">`;
+  html += `<span class="detail-toggle ${isOpen ? 'open' : ''}">▶</span>`;
+  html += `<span class="badge-llm">${label}</span>`;
+  html += `<span class="detail-title">${esc(d.model || '')}${esc(round)}${esc(step)}</span>`;
+  html += `<span class="detail-meta">${d.duration_ms ? (d.duration_ms/1000).toFixed(1)+'s' : ''}</span>`;
+  html += `</div>`;
+  html += `<div class="detail-body" style="display:${isOpen ? 'block' : 'none'}">`;
+  if (d.prompt) {
+    html += `<div class="code-label">输入 (Messages)</div>`;
+    html += `<pre class="full-data">${esc(d.prompt)}</pre>`;
+  }
+  if (d.response) {
+    html += `<div class="code-label">输出 (Response)</div>`;
+    html += `<pre class="full-data">${esc(d.response)}</pre>`;
+  }
+  if (d.duration_ms) {
+    html += `<div style="font-size:11px;color:var(--muted);margin-top:4px">耗时: ${(d.duration_ms/1000).toFixed(2)}s</div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function renderToolCallCard(ev) {
+  const d = ev.data || {};
+  const cardKey = 'detail:' + ev.event_id;
+  const isOpen = expandedNodes.has(cardKey);
+  const round = d.round ? ` R${d.round}` : '';
+
+  let html = `<div class="detail-card">`;
+  html += `<div class="detail-header" onclick="toggleNode('${cardKey}', this)">`;
+  html += `<span class="detail-toggle ${isOpen ? 'open' : ''}">▶</span>`;
+  html += `<span class="badge-tool">工具调用</span>`;
+  html += `<span class="detail-title">${esc(d.tool_name || '')}${esc(round)}</span>`;
+  html += `<span class="detail-meta">Step ${d.step || 1}</span>`;
+  html += `</div>`;
+  html += `<div class="detail-body" style="display:${isOpen ? 'block' : 'none'}">`;
+  if (d.tool_arguments) {
+    html += `<div class="code-label">参数</div>`;
+    try {
+      const args = JSON.parse(d.tool_arguments);
+      html += `<pre class="full-data">${esc(JSON.stringify(args, null, 2))}</pre>`;
+    } catch {
+      html += `<pre class="full-data">${esc(d.tool_arguments)}</pre>`;
+    }
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function renderToolResultCard(ev) {
+  const d = ev.data || {};
+  const cardKey = 'detail:' + ev.event_id;
+  const isOpen = expandedNodes.has(cardKey);
+  const isError = d.tool_result && typeof d.tool_result === 'string' && d.tool_result.startsWith('Error');
+
+  let html = `<div class="detail-card">`;
+  html += `<div class="detail-header" onclick="toggleNode('${cardKey}', this)">`;
+  html += `<span class="detail-toggle ${isOpen ? 'open' : ''}">▶</span>`;
+  if (isError) {
+    html += `<span class="badge-tool" style="background:#f8514922;color:var(--red)">工具错误</span>`;
+  } else {
+    html += `<span class="badge-tool" style="background:#3fb95022;color:var(--green)">工具结果</span>`;
+  }
+  html += `<span class="detail-title">${esc(d.tool_name || '')}</span>`;
+  html += `<span class="detail-meta">Step ${d.step || 1}</span>`;
+  html += `</div>`;
+  html += `<div class="detail-body" style="display:${isOpen ? 'block' : 'none'}">`;
+  if (d.tool_result) {
+    html += `<div class="code-label">${isError ? '错误信息' : '结果'}</div>`;
+    html += `<pre class="full-data" style="${isError ? 'color:var(--red);border-color:var(--red)' : ''}">${esc(d.tool_result)}</pre>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function renderToolErrorCard(ev) {
+  const d = ev.data || {};
+  return `<div class="detail-card" style="border-left:2px solid var(--red)">
+    <div class="detail-header">
+      <span class="badge-tool" style="background:#f8514922;color:var(--red)">工具错误</span>
+      <span class="detail-title">${esc(d.tool_name || '')}</span>
+    </div>
+    <div class="detail-body" style="display:block">
+      <div style="color:var(--red)">${esc(d.tool_error || 'Unknown error')}</div>
+    </div></div>`;
+}
+
+function renderEvalCard(ev) {
+  const d = ev.data || {};
+  const passed = d.eval_pass;
+  const round = d.round ? ` 第${d.round}轮` : '';
+
+  let html = `<div class="detail-card">`;
+  html += `<div class="detail-header" style="cursor:default">`;
+  html += `<span class="badge-eval">评估结果${esc(round)}</span>`;
+  html += passed
+    ? `<span class="eval-pass">PASS</span>`
+    : `<span class="eval-fail">FAIL</span>`;
+  html += `<span class="eval-score" style="margin-left:8px;color:${passed ? 'var(--green)' : 'var(--red)'}">${d.total_score ?? '-'}</span>`;
+  html += `</div>`;
+  if (d.suggestions && d.suggestions.length > 0) {
+    html += `<div class="detail-body" style="display:block">`;
+    html += `<div class="eval-suggestions">`;
+    for (const s of d.suggestions) {
+      html += `<div class="eval-suggestion">${esc(s)}</div>`;
+    }
+    html += `</div></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderStepStartCard(ev) {
+  const d = ev.data || {};
+  const phase = d.phase || '';
+  const round = d.round ? `R${d.round}` : '';
+  const phaseLabel = phase === 'eval' ? '评估' : phase === 'final' ? '最终生成' : phase === 'generate' ? '生成' : '';
+  return `<div style="padding:4px 10px;font-size:11px;color:var(--muted);border-left:2px solid var(--yellow);margin:2px 0;background:var(--surface)">
+    Step ${ev.step || 1}${round ? ' · ' + round : ''}${phaseLabel ? ' · ' + phaseLabel : ''}
+  </div>`;
+}
+
+function renderStepEndCard(ev) {
+  const d = ev.data || {};
+  const cardKey = 'detail:' + ev.event_id;
+  const isOpen = expandedNodes.has(cardKey);
+  const response = d.response || d.content || '';
+  const hasContent = response.length > 0;
+  const preview = hasContent ? (response.length > 100 ? response.slice(0, 100) + '...' : response) : '';
+
+  let html = `<div class="detail-card">`;
+  html += `<div class="detail-header" onclick="toggleNode('${cardKey}', this)">`;
+  html += `<span class="detail-toggle ${isOpen ? 'open' : ''}">▶</span>`;
+  html += `<span class="badge-step">Step ${ev.step || 1} 完成</span>`;
+  if (hasContent) {
+    html += `<span style="font-size:11px;color:var(--muted);margin-left:4px">${esc(preview)}</span>`;
+  }
+  html += `<span class="detail-meta">${hasContent ? response.length + ' chars' : ''}</span>`;
+  html += `</div>`;
+  if (hasContent) {
+    html += `<div class="detail-body" style="display:${isOpen ? 'block' : 'none'}">`;
+    html += `<div class="code-label">LLM 输出</div>`;
+    html += `<pre class="full-data">${esc(response)}</pre>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function renderDataCard(ev) {
+  const d = ev.data || {};
+
+  // File lists (scanner, filter)
+  if (d.all_files || d.filtered_files || d.important_files) {
+    let html = `<div class="detail-card"><div class="detail-body" style="display:block">`;
+
+    if (d.all_files) {
+      html += `<div class="code-label">全部文件 (${d.all_files_count || d.all_files.length})</div>`;
+      html += `<div class="file-list">`;
+      for (const f of d.all_files) html += `<span class="file-tag">${esc(f)}</span>`;
+      html += `</div>`;
+    }
+    if (d.filtered_files) {
+      html += `<div class="code-label" style="margin-top:8px">过滤后文件 (${d.filtered_files_count || d.filtered_files.length})</div>`;
+      html += `<div class="file-list">`;
+      for (const f of d.filtered_files) html += `<span class="file-tag">${esc(f)}</span>`;
+      html += `</div>`;
+    }
+    if (d.important_files) {
+      html += `<div class="code-label" style="margin-top:8px">重要文件 (${d.important_files.length})</div>`;
+      html += `<div class="file-list">`;
+      for (const f of d.important_files) html += `<span class="file-tag">${esc(f)}</span>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+    return html;
+  }
+
+  // Module definitions (decomposer)
+  if (d.modules) {
+    let html = `<div class="detail-card"><div class="detail-body" style="display:block">`;
+    html += `<table class="module-table"><tr><th>模块</th><th>描述</th><th>文件数</th></tr>`;
+    for (const m of d.modules) {
+      html += `<tr><td>${esc(m.name)}</td><td>${esc(m.description || '')}</td><td>${(m.files || []).length}</td></tr>`;
+    }
+    html += `</table></div></div>`;
+    return html;
+  }
+
+  // Scores (scorer)
+  if (d.all_modules_ranked) {
+    let html = `<div class="detail-card"><div class="detail-body" style="display:block">`;
+    html += `<table class="module-table"><tr><th>模块</th><th>分数</th><th>状态</th></tr>`;
+    for (const m of d.all_modules_ranked) {
+      const pct = Math.min(100, Math.max(0, m.score));
+      html += `<tr class="${m.selected ? 'selected' : ''}"><td>${esc(m.name)}</td>
+        <td><span class="score-bar"><span class="score-fill" style="width:${pct}%"></span></span> ${m.score}</td>
+        <td>${m.selected ? '<span style="color:var(--green)">已选</span>' : '<span style="color:var(--muted)">未选</span>'}</td></tr>`;
+    }
+    html += `</table></div></div>`;
+    return html;
+  }
+
+  // Fallback
+  return renderGenericCard(ev);
+}
+
+function renderGenericCard(ev) {
+  const d = ev.data || {};
+  const cardKey = 'detail:' + ev.event_id;
+  const isOpen = expandedNodes.has(cardKey);
+
+  let html = `<div class="detail-card">`;
+  html += `<div class="detail-header" onclick="toggleNode('${cardKey}', this)">`;
+  html += `<span class="detail-toggle ${isOpen ? 'open' : ''}">▶</span>`;
+  html += `<span class="badge-data">${esc(ev.type)}</span>`;
+  html += `</div>`;
+  html += `<div class="detail-body" style="display:${isOpen ? 'block' : 'none'}">`;
+  html += `<pre class="full-data">${esc(JSON.stringify(d, null, 2))}</pre>`;
+  html += `</div></div>`;
+  return html;
+}
+
+// ─── Toggle ─────────────────────────────────────────────────────────────
+function toggleNode(key, headerEl) {
+  const body = headerEl.nextElementSibling;
+  const toggle = headerEl.querySelector('.stage-toggle, .sub-toggle, .detail-toggle');
+  if (expandedNodes.has(key)) {
+    expandedNodes.delete(key);
+    body.style.display = 'none';
+    if (toggle) toggle.classList.remove('open');
+  } else {
+    expandedNodes.add(key);
+    body.style.display = 'block';
+    if (toggle) toggle.classList.add('open');
+  }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────
+function statusText(s) {
+  switch(s) {
+    case 'running': return '运行中';
+    case 'completed': return '完成';
+    case 'error': return '错误';
+    default: return '等待';
+  }
+}
+
+function formatDuration(start, end) {
+  if (!start) return '';
+  const s = new Date(start).getTime();
+  const e = end ? new Date(end).getTime() : Date.now();
+  const diff = Math.max(0, e - s);
+  if (diff < 1000) return diff + 'ms';
+  if (diff < 60000) return (diff / 1000).toFixed(1) + 's';
+  return (diff / 60000).toFixed(1) + 'm';
+}
+
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Runs ────────────────────────────────────────────────────────────────
+async function loadRuns() {
+  try { runs = await fetch('/api/runs').then(r => r.json()); renderRunList(); }
+  catch {}
+}
+
+async function selectRun(rid) {
+  selectedRunId = rid;
+  renderRunList();
+  const run = await fetch('/api/runs/' + rid).then(r => r.json()).catch(() => null);
+  if (!run) return;
+
+  initTree();
+  showTree();
+
+  // Replay all events to rebuild tree
+  (run.events || []).forEach(ev => routeEvent(ev));
+  renderTree();
+}
+
+function renderRunList() {
+  const el = document.getElementById('run-list');
+  if (!runs.length) { el.innerHTML = '<div style="padding:12px;color:var(--muted);font-size:12px">No runs yet</div>'; return; }
+  el.innerHTML = runs.map(r => `
+    <div class="run-item ${r.run_id === selectedRunId ? 'active' : ''}" onclick="selectRun('${r.run_id}')">
+      <div class="run-name">${esc(r.project_name || r.run_id)}</div>
+      <div class="run-meta">
+        <span class="run-status ${r.status}">${r.status}</span>
+        <span>${r.total_duration_s ? (r.total_duration_s/60).toFixed(1)+'m' : '-'}</span>
+        <span>${r.started_at ? new Date(r.started_at).toLocaleString() : ''}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────
+initTree();
+showTree();
+loadRuns();
+setInterval(loadRuns, 15000);
+</script>
+</body>
+</html>

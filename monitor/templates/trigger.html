@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trigger - CodeDeepResearch</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2128;
+  --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+  --blue: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #e3b341;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; }
+a { color: var(--blue); }
+
+/* ── Nav ── */
+#nav { display: flex; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; height: 48px; gap: 0; }
+#nav .brand { font-size: 15px; font-weight: 700; color: var(--blue); margin-right: 32px; }
+.nav-tab { padding: 0 16px; height: 48px; display: flex; align-items: center; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+.nav-tab:hover { color: var(--text); background: var(--surface2); }
+.nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+/* ── Main ── */
+#main { max-width: 640px; margin: 0 auto; padding: 40px 20px; }
+
+/* ── Card ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+.card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.card-title .icon { font-size: 16px; }
+
+/* ── Form ── */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+.input-row { display: flex; gap: 8px; }
+input[type="text"], input[type="number"] { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 10px; font-size: 13px; }
+input:focus { outline: none; border-color: var(--blue); }
+input::placeholder { color: var(--muted); }
+.browse-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 14px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.browse-btn:hover { background: #2d333b; }
+
+/* ── Buttons ── */
+.btn { padding: 8px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-danger { background: #f8514922; color: var(--red); border: 1px solid var(--red); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Status ── */
+#status-card { display: none; }
+.status-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; }
+.status-dot.running { background: var(--blue); animation: pulse 1.5s infinite; }
+.status-dot.done { background: var(--green); }
+.status-dot.error { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.status-title { font-size: 14px; font-weight: 600; }
+.status-meta { font-size: 12px; color: var(--muted); display: flex; gap: 16px; margin-top: 4px; }
+.progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 12px; }
+.progress-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.5s; width: 0%; }
+.progress-fill.done { background: var(--green); width: 100% !important; }
+
+/* ── Recent runs ── */
+.run-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.run-row:last-child { border-bottom: none; }
+.run-name { flex: 1; font-weight: 500; }
+.run-status { font-size: 10px; padding: 2px 8px; border-radius: 8px; }
+.run-status.running { background: #58a6ff22; color: var(--blue); }
+.run-status.completed { background: #3fb95022; color: var(--green); }
+.run-status.error { background: #f8514922; color: var(--red); }
+.run-time { color: var(--muted); font-size: 11px; }
+
+/* ── Info ── */
+.info-box { background: #58a6ff11; border: 1px solid #58a6ff33; border-radius: 8px; padding: 12px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+.info-box a { color: var(--blue); }
+</style>
+</head>
+<body>
+<div id="nav">
+  <div class="brand">CodeDeepResearch</div>
+  <div class="nav-tab" onclick="location.href='/monitor'">Monitor</div>
+  <div class="nav-tab" onclick="location.href='/config'">Config</div>
+  <div class="nav-tab active">Trigger</div>
+</div>
+
+<div id="main">
+  <!-- Trigger Form -->
+  <div class="card" id="trigger-card">
+    <div class="card-title"><span class="icon">🚀</span> Run Pipeline</div>
+    <div class="form-group">
+      <label>Project Path</label>
+      <div class="input-row">
+        <input type="text" id="project-path" placeholder="/path/to/your/project" value="">
+        <button class="browse-btn" onclick="browseFolder()">📁 Browse</button>
+      </div>
+    </div>
+    <div class="info-box" style="margin-bottom:16px">
+      Make sure the project is a code repository. The pipeline will scan, analyze, and generate a deep analysis report.
+      <a href="/config">Configure prompts</a> before running for best results.
+    </div>
+    <button class="btn btn-primary" id="start-btn" onclick="startPipeline()">🚀 Start Pipeline</button>
+  </div>
+
+  <!-- Active Status -->
+  <div class="card" id="status-card">
+    <div class="status-header">
+      <div class="status-dot" id="status-dot"></div>
+      <div>
+        <div class="status-title" id="status-title">Pipeline Running</div>
+        <div class="status-meta">
+          <span id="status-project"></span>
+          <span id="status-elapsed"></span>
+        </div>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+      <button class="btn btn-danger" id="kill-btn" onclick="killPipeline()">⏹ Kill</button>
+      <a href="/monitor" style="font-size:12px;color:var(--muted);align-self:center">→ View live events</a>
+    </div>
+  </div>
+
+  <!-- Recent Runs -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📋</span> Recent Runs</div>
+    <div id="recent-runs">
+      <div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Folder browse (macOS) ────────────────────────────────────────────────
+async function browseFolder() {
+  // Use a simple prompt since we can't open native dialog from browser
+  const path = prompt('Enter project path:');
+  if (path) document.getElementById('project-path').value = path.trim();
+}
+
+// ─── Trigger ─────────────────────────────────────────────────────────────
+async function startPipeline() {
+  const path = document.getElementById('project-path').value.trim();
+  if (!path) { alert('Please enter a project path'); return; }
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('start-btn').textContent = 'Starting...';
+  try {
+    const r = await fetch('/api/trigger', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({project_path: path}),
+    });
+    const data = await r.json();
+    if (!r.ok) { alert('Error: ' + (data.error || r.statusText)); return; }
+    showStatus(data.run_id, data.project_name);
+    // Also open monitor in a new tab
+    window.open('/monitor', '_blank');
+  } catch(e) { alert('Error: ' + e.message); }
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('start-btn').textContent = '🚀 Start Pipeline';
+}
+
+async function killPipeline() {
+  await fetch('/api/trigger/kill', {method:'POST'});
+  hideStatus();
+}
+
+function showStatus(runId, projectName) {
+  document.getElementById('status-card').style.display = 'block';
+  document.getElementById('status-title').textContent = 'Pipeline Running';
+  document.getElementById('status-project').textContent = projectName || runId;
+  document.getElementById('status-elapsed').textContent = '0s';
+  document.getElementById('status-dot').className = 'status-dot running';
+  document.getElementById('progress-fill').className = 'progress-fill';
+  document.getElementById('progress-fill').style.width = '30%';
+  pollStatus();
+}
+
+function pollStatus() {
+  fetch('/api/trigger/status').then(r=>r.json()).then(data => {
+    if (!data.running) { hideStatus(); loadRuns(); return; }
+    const elapsed = Math.floor(data.elapsed_s || 0);
+    document.getElementById('status-elapsed').textContent = elapsed + 's';
+    const pct = Math.min(90, 20 + elapsed * 0.5);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    setTimeout(pollStatus, 2000);
+  }).catch(() => setTimeout(pollStatus, 5000));
+}
+
+function hideStatus() {
+  document.getElementById('status-card').style.display = 'none';
+}
+
+// ─── Recent runs ─────────────────────────────────────────────────────────
+async function loadRuns() {
+  const runs = await fetch('/api/runs').then(r=>r.json()).catch(()=>[]);
+  const el = document.getElementById('recent-runs');
+  if (!runs.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px">No runs yet</div>';
+    return;
+  }
+  el.innerHTML = runs.slice(0, 5).map(r => `
+    <div class="run-row">
+      <span class="run-name">${escHtml(r.project_name || r.run_id)}</span>
+      <span class="run-status ${r.status}">${r.status}</span>
+      <span class="run-time">${r.total_duration_s ? (r.total_duration_s/60).toFixed(1)+'m' : r.started_at ? new Date(r.started_at).toLocaleString() : ''}</span>
+    </div>`).join('');
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────
+loadRuns();
+setInterval(loadRuns, 10000);
+
+// Check if pipeline already running
+fetch('/api/trigger/status').then(r=>r.json()).then(data => {
+  if (data.running) {
+    showStatus(data.run_id, data.project_name);
+  }
+});
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+</script>
+</body>
+</html>

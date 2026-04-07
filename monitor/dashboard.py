@@ -1,17 +1,21 @@
 """
-Flask dashboard server for pipeline monitoring.
+Flask dashboard server for pipeline monitoring and triggering.
 
 Provides:
   - SSE stream at /sse
   - Event ingestion at /api/events (POST)
   - Run management at /api/runs/* (POST/GET)
   - Config management at /api/config (GET/POST)
+  - Pipeline trigger at /api/trigger (POST)
   - Health check at /health
 
 Run standalone:
     python -m monitor.dashboard
 """
 import json
+import os
+import subprocess
+import sys
 import threading
 import time
 import queue
@@ -25,7 +29,8 @@ from monitor.config_manager import get_config_manager, ConfigManager
 
 
 def create_app(run_store: RunStore | None = None, config_manager: ConfigManager | None = None) -> Flask:
-    app = Flask(__name__, template_folder="templates")
+    template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+    app = Flask(__name__, template_folder=template_dir)
 
     # Use provided or global instances
     _run_store = run_store or get_run_store()
@@ -148,30 +153,127 @@ def create_app(run_store: RunStore | None = None, config_manager: ConfigManager 
 
     @app.route("/api/config/prompt/<name>", methods=["GET"])
     def get_prompt(name: str):
-        """Get a specific prompt template (raw, for editing)."""
         prompt = _config.get("prompts", {}).get(name, "")
         return jsonify({"name": name, "content": prompt})
 
     @app.route("/api/config/prompt/<name>", methods=["POST"])
     def save_prompt(name: str):
-        """Save a prompt template."""
         content = request.json.get("content", "")
-        with _config._lock:
-            if "prompts" not in _config._config:
-                _config._config["prompts"] = {}
-            _config._config["prompts"][name] = content
-        # Write to disk
-        if _config._config_path:
-            import yaml
-            with open(_config._config_path, "w", encoding="utf-8") as f:
-                yaml.dump(_config._config, f, allow_unicode=True, default_flow_style=False)
+        _config.save_prompt(name, content)
         return jsonify({"status": "saved"})
 
-    # ─── Dashboard UI ──────────────────────────────────────────────────
+    @app.route("/api/config/setting/<key>", methods=["POST"])
+    def save_setting(key: str):
+        value = request.json.get("value")
+        _config.save_setting(key, value)
+        return jsonify({"status": "saved"})
+
+    # ─── Pipeline Trigger ─────────────────────────────────────────────
+
+    _active_pipeline: dict = {}  # run_id -> {"process": Popen, "started_at": float}
+
+    @app.route("/api/trigger", methods=["POST"])
+    def trigger_pipeline():
+        """Trigger a new pipeline run from the dashboard."""
+        data = request.json or {}
+        project_path = data.get("project_path", "").strip()
+        if not project_path:
+            return jsonify({"error": "project_path is required"}), 400
+        if not os.path.isdir(project_path):
+            return jsonify({"error": f"Directory not found: {project_path}"}), 400
+
+        # Kill existing active pipeline if any
+        for rid, info in list(_active_pipeline.items()):
+            proc = info.get("process")
+            if proc and proc.poll() is None:
+                proc.terminate()
+            del _active_pipeline[rid]
+
+        # Start new pipeline as subprocess
+        project_name = os.path.basename(os.path.abspath(project_path))
+        run_id = time.strftime("%Y-%m-%d_%H-%M-%S") + "_" + os.urandom(4).hex()
+
+        # Start run in run_store
+        _run_store.start_run(run_id, {
+            "project_path": project_path,
+            "project_name": project_name,
+            "provider": _config.provider,
+            "models": {
+                "lite": _config.model_lite,
+                "pro": _config.model_pro,
+                "max": _config.model_max,
+            },
+        })
+
+        # Notify SSE clients about new run
+        _broadcast({
+            "event_id": "announce",
+            "type": "run_started",
+            "data": {"run_id": run_id, "project_name": project_name, "status": "running"},
+        })
+
+        # Start the pipeline subprocess
+        main_py = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "main.py")
+        proc = subprocess.Popen(
+            [sys.executable, main_py, project_path, "--monitor"],
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+        _active_pipeline[run_id] = {
+            "process": proc,
+            "project_path": project_path,
+            "project_name": project_name,
+            "started_at": time.time(),
+        }
+
+        return jsonify({"status": "started", "run_id": run_id, "project_name": project_name})
+
+    @app.route("/api/trigger/status")
+    def trigger_status():
+        """Get status of active pipeline."""
+        if not _active_pipeline:
+            return jsonify({"running": False})
+        rid, info = list(_active_pipeline.items())[0]
+        proc = info["process"]
+        return jsonify({
+            "running": proc.poll() is None,
+            "run_id": rid,
+            "project_name": info["project_name"],
+            "elapsed_s": time.time() - info["started_at"],
+        })
+
+    @app.route("/api/trigger/kill", methods=["POST"])
+    def kill_pipeline():
+        """Kill the active pipeline."""
+        for rid, info in _active_pipeline.items():
+            proc = info.get("process")
+            if proc and proc.poll() is None:
+                proc.terminate()
+                time.sleep(0.5)
+                if proc.poll() is None:
+                    proc.kill()
+        _active_pipeline.clear()
+        return jsonify({"status": "killed"})
+
+    # ─── Dashboard UI (3 pages) ─────────────────────────────────────────
 
     @app.route("/")
     def index():
-        return render_template("dashboard.html")
+        return render_template("monitor.html")
+
+    @app.route("/monitor")
+    def monitor_page():
+        return render_template("monitor.html")
+
+    @app.route("/config")
+    def config_page():
+        return render_template("config.html")
+
+    @app.route("/trigger")
+    def trigger_page():
+        return render_template("trigger.html")
 
     # ─── Health ────────────────────────────────────────────────────────
 

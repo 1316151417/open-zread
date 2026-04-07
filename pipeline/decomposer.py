@@ -11,9 +11,9 @@ from monitor.events import PipelineEvent, PipelineEventType
 
 def decompose_into_modules(ctx: PipelineContext) -> None:
     bus = get_event_bus(server_url=ctx.server_url)
-    def pub(et, stage, data, step=1):
+    def pub(et, stage, data, step=1, **kwargs):
         if ctx.run_id:
-            bus.publish(PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step))
+            bus.publish(PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step, **kwargs))
 
     pub(PipelineEventType.STAGE_START, "decomposer", {"stage_index": 3})
 
@@ -26,10 +26,10 @@ def decompose_into_modules(ctx: PipelineContext) -> None:
 
     pub(PipelineEventType.LLM_CALL, "decomposer", {
         "model": ctx.lite_model,
-        "prompt_preview": user_msg[:200],
+        "prompt": user_msg,
+        "response": response,
         "duration_ms": duration_ms,
-        "response_len": len(response),
-    })
+    }, operation_type="llm_call")
 
     try:
         raw_modules = json.loads(extract_json(response))
@@ -52,7 +52,8 @@ def decompose_into_modules(ctx: PipelineContext) -> None:
     pub(PipelineEventType.STAGE_DECOMPOSE_COMPLETE, "decomposer", {
         "module_count": len(ctx.modules),
         "module_names": [m.name for m in ctx.modules],
-    })
+        "modules": [{"name": m.name, "description": m.description, "files": m.files} for m in ctx.modules],
+    }, operation_type="data_output")
     pub(PipelineEventType.STAGE_END, "decomposer", {
         "output_summary": f"{len(ctx.modules)} modules decomposed"
     })

@@ -143,9 +143,11 @@ TEXT_EXTENSIONS = {
 
 def scan_project(ctx: PipelineContext) -> None:
     bus = get_event_bus(server_url=ctx.server_url)
-    _publish = lambda et, stage, data, step=1: bus.publish(
-        PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step)
-    ) if ctx.run_id else None
+    def _publish(et, stage, data, step=1, **kwargs):
+        if ctx.run_id:
+            bus.publish(PipelineEvent.new(
+                run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step, **kwargs,
+            ))
 
     _publish(PipelineEventType.STAGE_START, "scanner", {"stage_index": 1})
     root = Path(ctx.project_path)
@@ -186,7 +188,9 @@ def scan_project(ctx: PipelineContext) -> None:
         "all_files_count": len(ctx.all_files),
         "filtered_files_count": len(ctx.filtered_files),
         "excluded_count": len(ctx.all_files) - len(ctx.filtered_files),
-    })
+        "all_files": [f.path for f in ctx.all_files],
+        "filtered_files": [f.path for f in ctx.filtered_files],
+    }, operation_type="data_output")
     _publish(PipelineEventType.STAGE_END, "scanner", {
         "output_summary": f"{len(ctx.all_files)} files total, {len(ctx.filtered_files)} after basic filter"
     })

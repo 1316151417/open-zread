@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Config - CodeDeepResearch</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2128;
+  --border: #30363d; --text: #e6edf3; --muted: #8b949e;
+  --blue: #58a6ff; --green: #3fb950; --red: #f85149;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; }
+a { color: var(--blue); text-decoration: none; }
+
+/* ── Nav ── */
+#nav { display: flex; align-items: center; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; height: 48px; gap: 0; }
+#nav .brand { font-size: 15px; font-weight: 700; color: var(--blue); margin-right: 32px; }
+.nav-tab { padding: 0 16px; height: 48px; display: flex; align-items: center; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+.nav-tab:hover { color: var(--text); background: var(--surface2); }
+.nav-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+#save-status { margin-left: auto; font-size: 12px; color: var(--muted); }
+#save-status.saved { color: var(--green); }
+
+/* ── Layout ── */
+#layout { display: grid; grid-template-columns: 220px 1fr; height: calc(100vh - 48px); }
+
+/* ── Left: nav ── */
+#left { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; }
+.section-label { padding: 12px 12px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); position: sticky; top: 0; background: var(--surface); }
+.config-item { padding: 8px 12px; cursor: pointer; border-left: 2px solid transparent; transition: all 0.1s; font-size: 12px; color: var(--muted); }
+.config-item:hover { background: var(--surface2); color: var(--text); }
+.config-item.active { background: #1f6feb18; border-left-color: var(--blue); color: var(--blue); }
+.config-item .desc { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* ── Right: editor ── */
+#right { display: flex; flex-direction: column; overflow: hidden; }
+#editor-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+#editor-header h2 { font-size: 14px; font-weight: 600; }
+#editor-header .badge { font-size: 10px; padding: 2px 8px; border-radius: 8px; background: var(--surface2); color: var(--muted); }
+#editor-actions { margin-left: auto; display: flex; gap: 8px; }
+.btn { padding: 5px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 500; transition: opacity 0.15s; }
+.btn:hover { opacity: 0.85; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-danger { background: #f8514922; color: var(--red); border: 1px solid var(--red); }
+#editor-body { flex: 1; overflow-y: auto; padding: 16px; }
+textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace; font-size: 12px; line-height: 1.6; padding: 12px; resize: vertical; min-height: 300px; }
+textarea:focus { outline: none; border-color: var(--blue); }
+textarea::selection { background: #58a6ff44; }
+
+/* ── Settings panel ── */
+#settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.setting-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.setting-card label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+.setting-card input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); padding: 6px 8px; font-size: 12px; }
+.setting-card input:focus { outline: none; border-color: var(--blue); }
+.section-title { font-size: 13px; font-weight: 600; color: var(--text); margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.section-title:first-child { margin-top: 0; }
+
+/* ── Toast ── */
+#toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 12px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 1000; }
+#toast.show { opacity: 1; }
+#toast.good { border-color: var(--green); color: var(--green); }
+#toast.bad { border-color: var(--red); color: var(--red); }
+</style>
+</head>
+<body>
+<div id="nav">
+  <div class="brand">CodeDeepResearch</div>
+  <div class="nav-tab" onclick="location.href='/monitor'">Monitor</div>
+  <div class="nav-tab active">Config</div>
+  <div class="nav-tab" onclick="location.href='/trigger'">Trigger</div>
+  <div id="save-status"></div>
+</div>
+
+<div id="layout">
+  <div id="left">
+    <div class="section-label">Prompts</div>
+    <div id="prompt-list"></div>
+    <div class="section-label" style="margin-top:8px">Settings</div>
+    <div class="config-item" onclick="showSettings()">⚙ Pipeline Settings</div>
+  </div>
+  <div id="right">
+    <div id="editor-header">
+      <h2 id="editor-title">Select an item</h2>
+      <span class="badge" id="editor-type"></span>
+      <div id="editor-actions">
+        <button class="btn btn-secondary" onclick="resetPrompt()">Reset to Default</button>
+        <button class="btn btn-primary" onclick="savePrompt()">💾 Save</button>
+      </div>
+    </div>
+    <div id="editor-body">
+      <textarea id="prompt-editor" placeholder="Select a prompt or setting to edit..." spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const PROMPTS = [
+  {name: 'file_filter_system', label: 'File Filter (System)', desc: 'System prompt for LLM file filtering'},
+  {name: 'file_filter_user', label: 'File Filter (User)', desc: 'User prompt for file filtering'},
+  {name: 'decomposer_system', label: 'Decomposer (System)', desc: 'Module decomposition system prompt'},
+  {name: 'decomposer_user', label: 'Decomposer (User)', desc: 'Module decomposition user prompt'},
+  {name: 'scorer_system', label: 'Scorer (System)', desc: 'Module scoring system prompt'},
+  {name: 'scorer_user', label: 'Scorer (User)', desc: 'Module scoring user prompt'},
+  {name: 'sub_agent_system', label: 'Sub Agent (System)', desc: 'ReAct sub-agent system prompt'},
+  {name: 'sub_agent_user', label: 'Sub Agent (User)', desc: 'Sub-agent user prompt'},
+  {name: 'eval_agent_system', label: 'Eval Agent (System)', desc: 'Report evaluation system prompt'},
+  {name: 'eval_agent_user', label: 'Eval Agent (User)', desc: 'Report evaluation user prompt'},
+  {name: 'aggregator_system', label: 'Aggregator (System)', desc: 'Final report aggregator system prompt'},
+  {name: 'aggregator_user', label: 'Aggregator (User)', desc: 'Aggregator user prompt'},
+  {name: 'aggregator_eval_system', label: 'Aggregator Eval (System)', desc: 'Final report evaluation system prompt'},
+  {name: 'aggregator_eval_user', label: 'Aggregator Eval (User)', desc: 'Final report evaluation user prompt'},
+];
+
+let config = {};
+let currentPrompt = null;
+
+async function loadConfig() {
+  config = await fetch('/api/config').then(r => r.json());
+  renderPromptList();
+}
+
+function renderPromptList() {
+  const el = document.getElementById('prompt-list');
+  el.innerHTML = PROMPTS.map(p => `
+    <div class="config-item" onclick="selectPrompt('${p.name}')" id="item-${p.name}">
+      <div>${escHtml(p.label)}</div>
+      <div class="desc">${escHtml(p.desc)}</div>
+    </div>`).join('');
+}
+
+async function selectPrompt(name) {
+  document.querySelectorAll('.config-item').forEach(el => el.classList.remove('active'));
+  const item = document.getElementById('item-' + name);
+  if (item) item.classList.add('active');
+  const content = config.prompts?.[name] || '';
+  document.getElementById('editor-title').textContent = PROMPTS.find(p=>p.name===name)?.label || name;
+  document.getElementById('editor-type').textContent = 'prompt';
+  document.getElementById('prompt-editor').value = content;
+  currentPrompt = name;
+}
+
+function showSettings() {
+  document.querySelectorAll('.config-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('editor-title').textContent = 'Pipeline Settings';
+  document.getElementById('editor-type').textContent = 'settings';
+  currentPrompt = null;
+  document.getElementById('prompt-editor').outerHTML = buildSettingsEditor();
+}
+
+function buildSettingsEditor() {
+  const s = config;
+  return `<div id="editor-body-inner">
+    <div class="section-title">Models</div>
+    <div id="settings-grid">
+      <div class="setting-card"><label>Provider</label><input id="s-provider" value="${escAttr(s.provider||'')}"></div>
+      <div class="setting-card"><label>Lite Model</label><input id="s-lite_model" value="${escAttr(s.lite_model||'')}"></div>
+      <div class="setting-card"><label>Pro Model</label><input id="s-pro_model" value="${escAttr(s.pro_model||'')}"></div>
+      <div class="setting-card"><label>Max Model</label><input id="s-max_model" value="${escAttr(s.max_model||'')}"></div>
+      <div class="setting-card"><label>Max Tokens</label><input id="s-max_tokens" value="${escAttr(s.max_tokens||'')}" type="number"></div>
+    </div>
+    <div class="section-title">Pipeline</div>
+    <div id="settings-grid">
+      <div class="setting-card"><label>Max Sub-Agents</label><input id="s-max_sub_agents" value="${escAttr(s.max_sub_agents||'')}" type="number"></div>
+      <div class="setting-card"><label>Max Agent Steps</label><input id="s-max_sub_agent_steps" value="${escAttr(s.max_sub_agent_steps||'')}" type="number"></div>
+      <div class="setting-card"><label>Max Eval Rounds</label><input id="s-max_eval_rounds" value="${escAttr(s.max_eval_rounds||'')}" type="number"></div>
+      <div class="setting-card"><label>Max Parallel Workers</label><input id="s-max_parallel_workers" value="${escAttr(s.max_parallel_workers||8)}" type="number"></div>
+      <div class="setting-card"><label>Parallel Research</label><input id="s-parallel_research" value="${escAttr(s.parallel_research||'')}"></div>
+    </div>
+    <div class="section-title">Server</div>
+    <div id="settings-grid">
+      <div class="setting-card"><label>Server URL</label><input id="s-server_url" value="${escAttr(s.server_url||'')}"></div>
+    </div>
+    <div id="editor-actions" style="margin-top:16px">
+      <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+      <button class="btn btn-secondary" onclick="reloadConfig()">↻ Reload from Disk</button>
+    </div>
+  </div>`;
+}
+
+async function savePrompt() {
+  if (!currentPrompt) return;
+  const content = document.getElementById('prompt-editor').value;
+  try {
+    await fetch('/api/config/prompt/' + currentPrompt, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({content}),
+    });
+    config.prompts[currentPrompt] = content;
+    toast('Saved!', 'good');
+  } catch(e) { toast('Save failed: ' + e.message, 'bad'); }
+}
+
+async function saveSettings() {
+  const keys = ['provider','lite_model','pro_model','max_model','max_tokens','max_sub_agents','max_sub_agent_steps','max_eval_rounds','max_parallel_workers','parallel_research','server_url'];
+  for (const k of keys) {
+    const el = document.getElementById('s-' + k);
+    if (!el) continue;
+    let v = el.value;
+    if (['max_tokens','max_sub_agents','max_sub_agent_steps','max_eval_rounds','max_parallel_workers'].includes(k)) v = parseInt(v) || 0;
+    if (k === 'parallel_research') v = v === 'true' || v === 'True';
+    config[k] = v;
+    try {
+      await fetch('/api/config/setting/' + k, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({value: v}),
+      });
+    } catch(e) {}
+  }
+  toast('Settings saved!', 'good');
+}
+
+async function reloadConfig() {
+  await fetch('/api/config/reload', {method:'POST'});
+  await loadConfig();
+  toast('Reloaded from disk', 'good');
+}
+
+async function resetPrompt() {
+  if (!currentPrompt) return;
+  document.getElementById('prompt-editor').value = '';
+  toast('Reset - save with empty value to clear', 'good');
+}
+
+function toast(msg, cls='good') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + cls;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+loadConfig();
+</script>
+</body>
+</html>

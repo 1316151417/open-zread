@@ -16,9 +16,11 @@ from monitor.events import PipelineEvent, PipelineEventType
 
 def research_modules(ctx: PipelineContext, report_dir: str) -> None:
     bus = get_event_bus(server_url=ctx.server_url)
-    def pub(et, stage, data, step=1):
+    def pub(et, stage, data, step=1, **kwargs):
         if ctx.run_id:
-            bus.publish(PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step))
+            bus.publish(PipelineEvent.new(
+                run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step, **kwargs,
+            ))
 
     pub(PipelineEventType.STAGE_START, "researcher", {"stage_index": 5})
 
@@ -35,8 +37,9 @@ def research_modules(ctx: PipelineContext, report_dir: str) -> None:
     ctx._pub = pub
 
     if parallel and total > 1:
-        print(f"  并行研究 {total} 个模块（最多 {max_eval_rounds} 轮评估）", flush=True)
-        with ThreadPoolExecutor(max_workers=min(total, 4)) as executor:
+        max_workers = settings.get("max_parallel_workers", 8)
+        print(f"  并行研究 {total} 个模块（最多 {max_eval_rounds} 轮评估，{max_workers} 并发）", flush=True)
+        with ThreadPoolExecutor(max_workers=min(total, max_workers)) as executor:
             futures = {}
             for module in ctx.selected_modules:
                 future = executor.submit(_research_single_module, ctx, module, tools, max_eval_rounds, report_dir, verbose=False)
@@ -69,13 +72,93 @@ def research_modules(ctx: PipelineContext, report_dir: str) -> None:
 def _research_single_module(ctx: PipelineContext, module: Module, tools: list, max_eval_rounds: int, report_dir: str, verbose: bool = True) -> None:
     pub = getattr(ctx, '_pub', None)
     run_id = ctx.run_id
+    sub_id = f"module_{module.name}"
 
-    def do_pub(et, stage, data, step=1):
+    # Set project root for this thread — ContextVar does NOT propagate via ThreadPoolExecutor
+    set_project_root(ctx.project_path)
+
+    def do_pub(et, stage, data, step=1, **kwargs):
         if pub and run_id:
-            pub(et, stage, data, step)
+            pub(et, stage, data, step, sub_node_id=sub_id, sub_node_name=module.name, **kwargs)
+
+    def make_react_handler(module_name: str, round_num: int = 0, phase: str = "generate"):
+        from base.types import Event as ReactEvent
+        _sub_id = f"module_{module_name}"
+        def react_handler(event: ReactEvent):
+            if event.type == EventType.STEP_START:
+                # Publish LLM_CALL FIRST — before any tool calls
+                raw = getattr(event, 'raw', None) or {}
+                do_pub(PipelineEventType.LLM_CALL, "researcher", {
+                    "module_name": module_name,
+                    "model": ctx.pro_model,
+                    "prompt": raw.get("messages", ""),
+                    "step": event.step,
+                    "round": round_num,
+                    "phase": phase,
+                }, step=event.step, operation_type="llm_call")
+                do_pub(PipelineEventType.LLM_STEP_START, "researcher", {
+                    "module_name": module_name, "step": event.step, "round": round_num, "phase": phase,
+                }, step=event.step, operation_type=phase)
+            elif event.type == EventType.STEP_END:
+                content = getattr(event, 'content', '') or ''
+                raw = getattr(event, 'raw', None) or {}
+                do_pub(PipelineEventType.LLM_STEP_END, "researcher", {
+                    "module_name": module_name,
+                    "step": event.step,
+                    "content": content,
+                    "response": raw.get("full_content", content),
+                    "round": round_num,
+                    "phase": phase,
+                }, step=event.step, operation_type=phase)
+            elif event.type == EventType.TOOL_CALL:
+                do_pub(PipelineEventType.LLM_TOOL_CALL, "researcher", {
+                    "module_name": module_name,
+                    "tool_name": event.tool_name,
+                    "tool_arguments": getattr(event, 'tool_arguments', ''),
+                    "tool_id": getattr(event, 'tool_id', ''),
+                    "step": getattr(event, 'step', 1),
+                    "round": round_num,
+                    "phase": phase,
+                }, operation_type="tool_call")
+            elif event.type == EventType.TOOL_CALL_SUCCESS:
+                result = getattr(event, 'tool_result', None)
+                do_pub(PipelineEventType.LLM_TOOL_RESULT, "researcher", {
+                    "module_name": module_name,
+                    "tool_name": event.tool_name,
+                    "tool_result": str(result) if result else None,
+                    "tool_arguments": getattr(event, 'tool_arguments', ''),
+                    "step": getattr(event, 'step', 1),
+                    "round": round_num,
+                    "phase": phase,
+                }, operation_type="tool_result")
+            elif event.type == EventType.TOOL_CALL_FAILED:
+                do_pub(PipelineEventType.LLM_TOOL_ERROR, "researcher", {
+                    "module_name": module_name,
+                    "tool_name": event.tool_name,
+                    "tool_error": getattr(event, 'tool_error', ''),
+                    "step": getattr(event, 'step', 1),
+                    "round": round_num,
+                    "phase": phase,
+                }, operation_type="tool_result")
+            elif event.type == EventType.CONTENT_DELTA:
+                do_pub(PipelineEventType.LLM_CONTENT, "researcher", {
+                    "module_name": module_name,
+                    "content": event.content or '',
+                    "step": getattr(event, 'step', 1),
+                    "round": round_num,
+                    "phase": phase,
+                }, operation_type="content")
+        return react_handler
 
     tag = f"[{module.name}]"
-    do_pub(PipelineEventType.STAGE_START, "researcher", {"stage_index": 5, "module_name": module.name}, step=1)
+
+    # Publish SUB_NODE_START for this module
+    pub(PipelineEventType.SUB_NODE_START, "researcher", {
+        "module_name": module.name,
+        "module_files": module.files,
+        "module_description": module.description,
+    }, sub_node_id=sub_id, sub_node_name=module.name)
+
     _print(verbose, f"  {tag} 开始研究 ({len(module.files)} 个文件)")
 
     # === 阶段 1：多轮生成 + 评估反馈 ===
@@ -84,7 +167,7 @@ def _research_single_module(ctx: PipelineContext, module: Module, tools: list, m
         messages = _build_generate_messages(ctx, module, round_num)
 
         _print(verbose or round_num == 1, f"  {tag} 调用 ReAct agent 生成报告...")
-        events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.pro_model, max_steps=ctx.max_sub_agent_steps)
+        events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.pro_model, max_steps=ctx.max_sub_agent_steps, event_handler=make_react_handler(module.name, round_num, "generate"))
         report = _collect_agent_output(events, tag, verbose)
         module.research_report = report
 
@@ -93,7 +176,7 @@ def _research_single_module(ctx: PipelineContext, module: Module, tools: list, m
             break
 
         print(f"  {tag} 正在评估报告质量...", flush=True)
-        eval_result = _evaluate_report(ctx, module, report)
+        eval_result = _evaluate_report(ctx, module, report, round_num)
         score = eval_result.get("total_score", "?")
 
         if eval_result.get("pass", False):
@@ -112,20 +195,21 @@ def _research_single_module(ctx: PipelineContext, module: Module, tools: list, m
     final_messages.append(UserMessage("已收集足够上下文，请立即生成完整的中文分析报告。不再调用任何工具，直接输出报告。"))
 
     _print(verbose, f"  {tag} 最终生成，无工具模式...")
-    events = react_stream(messages=final_messages, tools=[], provider=ctx.provider, model=ctx.pro_model, max_steps=ctx.max_sub_agent_steps)
+    events = react_stream(messages=final_messages, tools=[], provider=ctx.provider, model=ctx.pro_model, max_steps=ctx.max_sub_agent_steps, event_handler=make_react_handler(module.name, 0, "final"))
     report = _collect_agent_output(events, tag, verbose)
     module.research_report = report
 
     _write_module_report(report_dir, module)
     print(f"  {tag} 报告已保存", flush=True)
 
-    do_pub(PipelineEventType.STAGE_RESEARCH_COMPLETE, "researcher", {
+    pub(PipelineEventType.SUB_NODE_END, "researcher", {
         "module_name": module.name,
         "report_len": len(module.research_report) if module.research_report else 0,
-    })
-    do_pub(PipelineEventType.STAGE_END, "researcher", {
+    }, sub_node_id=sub_id, sub_node_name=module.name)
+
+    pub(PipelineEventType.STAGE_RESEARCH_COMPLETE, "researcher", {
         "module_name": module.name,
-        "output_summary": f"module {module.name} research complete, report {len(module.research_report) if module.research_report else 0} chars"
+        "report_len": len(module.research_report) if module.research_report else 0,
     })
 
 
@@ -153,12 +237,14 @@ def _build_final_messages(ctx: PipelineContext, module: Module) -> list:
     return messages
 
 
-def _evaluate_report(ctx: PipelineContext, module: Module, report: str) -> dict:
+def _evaluate_report(ctx: PipelineContext, module: Module, report: str, round_num: int = 0) -> dict:
     pub = getattr(ctx, '_pub', None)
     run_id = ctx.run_id
-    def do_pub(et, stage, data, step=1):
+    sub_id = f"module_{module.name}"
+
+    def do_pub(et, stage, data, step=1, **kwargs):
         if pub and run_id:
-            pub(et, stage, data, step)
+            pub(et, stage, data, step, sub_node_id=sub_id, sub_node_name=module.name, **kwargs)
 
     system_prompt = EVAL_AGENT_SYSTEM.format(project_name=ctx.project_name, module_name=module.name, module_description=module.description, module_files="\n".join(f"  - {f}" for f in module.files))
     user_prompt = EVAL_AGENT_USER.format(module_name=module.name, report=report)
@@ -169,19 +255,31 @@ def _evaluate_report(ctx: PipelineContext, module: Module, report: str) -> dict:
     duration_ms = int((time.time() - start) * 1000)
     print(f"  [{module.name}] 评估响应 {len(response)} 字符", flush=True)
 
+    # Publish eval LLM call with full data
     do_pub(PipelineEventType.LLM_CALL, "researcher", {
         "model": ctx.pro_model,
-        "prompt_preview": f"evaluate module {module.name}",
+        "prompt": user_prompt,
+        "response": response,
         "duration_ms": duration_ms,
-        "response_len": len(response),
-    })
+        "call_type": "eval",
+        "round": round_num,
+    }, operation_type="eval")
 
     try:
         result = json.loads(extract_json(response))
         print(f"  [{module.name}] 评估解析成功: {result}", flush=True)
     except json.JSONDecodeError as e:
         print(f"  [{module.name}] 评估 JSON 解析失败: {e}", flush=True)
-        return {"pass": True, "total_score": 30, "suggestions": []}
+        result = {"pass": True, "total_score": 30, "suggestions": []}
+
+    # Publish structured eval result
+    do_pub(PipelineEventType.EVAL_RESULT, "researcher", {
+        "module_name": module.name,
+        "eval_pass": result.get("pass", False),
+        "total_score": result.get("total_score", 0),
+        "suggestions": result.get("suggestions", []),
+        "round": round_num,
+    }, operation_type="eval")
 
     module._eval_suggestions = result.get("suggestions", [])
     return result

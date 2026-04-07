@@ -25,6 +25,18 @@ class PipelineEventType(Enum):
     LLM_CALL = "llm_call"
     LLM_ERROR = "llm_error"
     HEARTBEAT = "heartbeat"
+    # Sub-node lifecycle
+    SUB_NODE_START = "sub_node_start"
+    SUB_NODE_END = "sub_node_end"
+    # Evaluation result
+    EVAL_RESULT = "eval_result"
+    # Deep ReAct events
+    LLM_STEP_START = "llm_step_start"
+    LLM_STEP_END = "llm_step_end"
+    LLM_TOOL_CALL = "llm_tool_call"
+    LLM_TOOL_RESULT = "llm_tool_result"
+    LLM_TOOL_ERROR = "llm_tool_error"
+    LLM_CONTENT = "llm_content"
 
 
 @dataclass
@@ -36,9 +48,13 @@ class PipelineEvent:
     timestamp: str
     data: dict
     step: int = 1
+    # Hierarchy fields for 3-layer monitoring
+    sub_node_id: str | None = None       # e.g., "module_auth", "aggregate_generate"
+    sub_node_name: str | None = None     # e.g., "认证模块", "生成Agent"
+    operation_type: str | None = None    # e.g., "llm_call", "tool_call", "eval", "data_output"
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "event_id": self.event_id,
             "run_id": self.run_id,
             "type": self.type.value,
@@ -47,11 +63,21 @@ class PipelineEvent:
             "data": self.data,
             "step": self.step,
         }
+        if self.sub_node_id is not None:
+            d["sub_node_id"] = self.sub_node_id
+        if self.sub_node_name is not None:
+            d["sub_node_name"] = self.sub_node_name
+        if self.operation_type is not None:
+            d["operation_type"] = self.operation_type
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "PipelineEvent":
         d = dict(d)
         d["type"] = PipelineEventType(d["type"])
+        d.setdefault("sub_node_id", None)
+        d.setdefault("sub_node_name", None)
+        d.setdefault("operation_type", None)
         return cls(**d)
 
     @staticmethod
@@ -61,6 +87,9 @@ class PipelineEvent:
         stage: str | None,
         data: dict,
         step: int = 1,
+        sub_node_id: str | None = None,
+        sub_node_name: str | None = None,
+        operation_type: str | None = None,
     ) -> "PipelineEvent":
         return PipelineEvent(
             event_id=uuid.uuid4().hex[:12],
@@ -70,4 +99,7 @@ class PipelineEvent:
             timestamp=datetime.now().isoformat(),
             data=data,
             step=step,
+            sub_node_id=sub_node_id,
+            sub_node_name=sub_node_name,
+            operation_type=operation_type,
         )

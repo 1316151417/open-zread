@@ -12,9 +12,9 @@ from monitor.events import PipelineEvent, PipelineEventType
 
 def llm_filter_files(ctx: PipelineContext) -> None:
     bus = get_event_bus(server_url=ctx.server_url)
-    def pub(et, stage, data, step=1):
+    def pub(et, stage, data, step=1, **kwargs):
         if ctx.run_id:
-            bus.publish(PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step))
+            bus.publish(PipelineEvent.new(run_id=ctx.run_id, event_type=et, stage=stage, data=data, step=step, **kwargs))
 
     pub(PipelineEventType.STAGE_START, "llm_filter", {"stage_index": 2})
 
@@ -27,10 +27,10 @@ def llm_filter_files(ctx: PipelineContext) -> None:
 
     pub(PipelineEventType.LLM_CALL, "llm_filter", {
         "model": ctx.lite_model,
-        "prompt_preview": user_msg[:200],
+        "prompt": user_msg,
+        "response": response,
         "duration_ms": duration_ms,
-        "response_len": len(response),
-    })
+    }, operation_type="llm_call")
 
     try:
         important_paths = json.loads(extract_json(response))
@@ -47,7 +47,8 @@ def llm_filter_files(ctx: PipelineContext) -> None:
     pub(PipelineEventType.STAGE_FILTER_COMPLETE, "llm_filter", {
         "filtered_in_count": len(ctx.important_files),
         "filtered_out_count": len(ctx.filtered_files) - len(ctx.important_files),
-    })
+        "important_files": [f.path for f in ctx.important_files],
+    }, operation_type="data_output")
     pub(PipelineEventType.STAGE_END, "llm_filter", {
         "output_summary": f"{len(ctx.important_files)} important files after LLM filter"
     })
