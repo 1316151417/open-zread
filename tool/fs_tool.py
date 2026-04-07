@@ -1,18 +1,28 @@
+"""
+Filesystem tools for ReAct agent - read_file, list_directory, glob_pattern, grep_content.
+"""
 import os
 import re
+from contextvars import ContextVar
 from pathlib import Path
 
 from base.types import tool
 
-_project_root: str = ""
+# Context variable for project root - thread-safe for concurrent research
+_project_root_var: ContextVar[str] = ContextVar('project_root', default='')
 
-MAX_READ_SIZE = 20 * 1024  # 20KB — 控制上下文膨胀
+MAX_READ_SIZE = 20 * 1024  # 20KB - 控制上下文膨胀
 MAX_GREP_RESULTS = 100
 
 
 def set_project_root(path: str) -> None:
-    global _project_root
-    _project_root = path
+    """设置当前研究会话的项目根目录（线程安全）。"""
+    _project_root_var.set(path)
+
+
+def get_project_root() -> str:
+    """获取当前研究会话的项目根目录。"""
+    return _project_root_var.get()
 
 
 @tool
@@ -22,7 +32,8 @@ def read_file(file_path: str) -> str:
     Args:
         file_path: Relative path from the project root
     """
-    full_path = os.path.join(_project_root, file_path)
+    project_root = get_project_root()
+    full_path = os.path.join(project_root, file_path) if project_root else file_path
     try:
         with open(full_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read(MAX_READ_SIZE)
@@ -44,7 +55,8 @@ def list_directory(dir_path: str) -> str:
     Args:
         dir_path: Relative path from the project root, use '.' for root
     """
-    full_path = os.path.join(_project_root, dir_path)
+    project_root = get_project_root()
+    full_path = os.path.join(project_root, dir_path) if project_root else dir_path
     try:
         entries = sorted(os.listdir(full_path))
         lines = []
@@ -71,18 +83,18 @@ def glob_pattern(pattern: str) -> str:
     Args:
         pattern: Glob pattern like '**/*.py' or 'src/**/*.ts'
     """
-    root = Path(_project_root)
+    project_root = get_project_root()
+    root = Path(project_root) if project_root else Path.cwd()
     matches = sorted(root.glob(pattern))
-    # 只返回相对路径，且排除隐藏目录
     results = []
     for m in matches:
-        rel = os.path.relpath(m, _project_root)
+        rel = os.path.relpath(m, project_root) if project_root else m
         if any(part.startswith(".") for part in Path(rel).parts):
             continue
         results.append(rel)
     if not results:
         return "No files matched the pattern."
-    return "\n".join(results)
+    return "\n".join(str(r) for r in results)
 
 
 @tool
@@ -93,7 +105,8 @@ def grep_content(pattern: str, file_pattern: str = "**/*") -> str:
         pattern: Regular expression pattern to search for
         file_pattern: Glob pattern to limit which files to search, default all files
     """
-    root = Path(_project_root)
+    project_root = get_project_root()
+    root = Path(project_root) if project_root else Path.cwd()
     try:
         regex = re.compile(pattern)
     except re.error as e:
@@ -103,8 +116,7 @@ def grep_content(pattern: str, file_pattern: str = "**/*") -> str:
     for match_path in sorted(root.glob(file_pattern)):
         if not match_path.is_file():
             continue
-        rel = os.path.relpath(match_path, _project_root)
-        # 跳过隐藏目录和二进制文件
+        rel = os.path.relpath(match_path, project_root) if project_root else match_path
         if any(part.startswith(".") for part in Path(rel).parts):
             continue
         try:

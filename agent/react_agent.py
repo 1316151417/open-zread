@@ -1,19 +1,21 @@
+"""
+ReAct Agent - implements the Observe -> Think -> Act loop with streaming events.
+"""
 import json
 import re
 import threading
 from queue import Queue, Empty
+
 from provider.adaptor import LLMAdaptor
 from base.types import Event, EventType, ToolMessage, AssistantMessage
 
-# 过滤 content 中的 tool_use(...) 文本行（LLM 有时会将其输出为普通文字）
-_TOOL_CALL_RE = re.compile(r'^tool_use\([^)]*\).*$', re.MULTILINE)
-
+TOOL_CALL_RE = re.compile(r'^tool_use\([^)]*\).*$', re.MULTILINE)
 MAX_STEP_CNT = 30
-STREAM_TIMEOUT_PER_STEP = 120  # 每个步骤的最大等待秒数（120秒足够完成一次生成）
+STREAM_TIMEOUT_PER_STEP = 120
 
 
 def _stream_with_timeout(adaptor, messages, tools, model, timeout):
-    """对 adaptor.stream() 的迭代包装超时保护"""
+    """对 adaptor.stream() 的迭代包装超时保护。"""
     result_queue = Queue()
 
     def worker():
@@ -44,7 +46,30 @@ def _stream_with_timeout(adaptor, messages, tools, model, timeout):
             raise TimeoutError(f"LLM stream timeout after {timeout}s (no events received)")
 
 
+def _parse_tool_arguments(arguments_str: str) -> dict:
+    """安全解析 tool arguments JSON字符串。"""
+    if not arguments_str:
+        return {}
+    try:
+        return json.loads(arguments_str)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in tool arguments: {arguments_str[:100]}... ({e})")
+
+
+def _execute_tool(tool, tool_arguments: str):
+    """执行工具，返回 (result, error)。"""
+    try:
+        args = _parse_tool_arguments(tool_arguments)
+        result = tool(**args)
+        return result, None
+    except Exception as e:
+        import traceback
+        print(f"  !!! 工具执行失败 {tool.name}: {e}\n{traceback.format_exc()}", flush=True)
+        return None, str(e)
+
+
 def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP_CNT):
+    """ReAct stream generator: yields events for each step."""
     adaptor = LLMAdaptor(provider=provider)
     react_finished = False
     step = 1
@@ -70,46 +95,33 @@ def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP
             for event in stream_iter:
                 yield event
                 if event.type == EventType.THINKING_DELTA:
-                    thinking += event.content
+                    thinking += event.content or ""
                 elif event.type == EventType.CONTENT_DELTA:
-                    content += event.content
+                    content += event.content or ""
                 elif event.type == EventType.TOOL_CALL:
                     raw_tool_calls.append(event.raw)
-                    tool_results[event.tool_id] = {"result": None, "error": None}
-                    try:
-                        exec_tool = next((t for t in tools if t.name == event.tool_name), None)
-                        if exec_tool is None:
-                            raise ValueError(f"Tool '{event.tool_name}' not found")
-                        exec_tool_arguments = json.loads(event.tool_arguments) if event.tool_arguments else {}
-                        result = exec_tool(**exec_tool_arguments)
-                        tool_results[event.tool_id]["result"] = result
-                        yield Event(type=EventType.TOOL_CALL_SUCCESS, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_result=result)
-                    except Exception as e:
-                        import traceback
-                        err_msg = f"工具执行失败 {event.tool_name}: {e}, 参数: {event.tool_arguments}"
-                        print(f"  !!! {err_msg}\n{traceback.format_exc()}", flush=True)
-                        tool_results[event.tool_id]["error"] = str(e)
-                        yield Event(type=EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_error=e)
+                    tool = next((t for t in tools if t.name == event.tool_name), None)
+                    if tool is None:
+                        tool_results[event.tool_id] = {"result": None, "error": f"Tool '{event.tool_name}' not found"}
+                        yield Event(type=EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_error=f"Tool '{event.tool_name}' not found")
+                    else:
+                        result, error = _execute_tool(tool, event.tool_arguments)
+                        tool_results[event.tool_id] = {"result": result, "error": error}
+                        yield Event(type=EventType.TOOL_CALL_SUCCESS if not error else EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_result=result, tool_error=error)
         except TimeoutError as e:
             print(f"  [TIMEOUT] 步骤 {cur_step} LLM 调用超时: {e}", flush=True)
             yield Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step)
             break
 
-        # 过滤 content 中的 tool_use(...) 文本（LLM 有时将其输出为普通文字）
-        filtered_content = _TOOL_CALL_RE.sub('', content).strip()
+        filtered_content = TOOL_CALL_RE.sub('', content).strip()
         yield Event(type=EventType.STEP_END, content=filtered_content, step=cur_step)
+
         if not raw_tool_calls:
             react_finished = True
             break
 
-        # thinking 存入消息的独立字段，不混入 content
         messages.append(AssistantMessage(content=content, tool_calls=raw_tool_calls, thinking=thinking))
         for raw_tc in raw_tool_calls:
             tid = raw_tc["id"]
             tr = tool_results[tid]
-            messages.append(ToolMessage(
-                tool_id=tid,
-                tool_name=raw_tc["name"],
-                tool_result=tr["result"],
-                tool_error=tr["error"],
-            ))
+            messages.append(ToolMessage(tool_id=tid, tool_name=raw_tc["name"], tool_result=tr["result"], tool_error=tr["error"]))

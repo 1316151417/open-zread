@@ -1,3 +1,6 @@
+"""
+Settings loader - loads configuration from settings.json with defaults.
+"""
 import json
 import os
 
@@ -17,12 +20,12 @@ _settings = None
 
 
 def load_settings(path: str | None = None) -> dict:
+    """Load settings from JSON file, falling back to defaults."""
     global _settings
     if _settings is not None:
         return _settings
 
     if path is None:
-        # 按优先级查找 settings.json
         candidates = [
             os.path.join(os.getcwd(), "settings.json"),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json"),
@@ -47,24 +50,31 @@ def get_settings() -> dict:
 
 
 def get_provider() -> str:
-    return get_settings()["provider"]
+    return load_settings()["provider"]
 
 
 def get_model() -> str:
-    return get_settings().get("model", _DEFAULTS.get("lite_model", "deepseek-chat"))
+    """Legacy function - returns lite model for backward compatibility."""
+    return get_lite_model()
 
 
 def get_lite_model() -> str:
-    return get_settings().get("lite_model", _DEFAULTS.get("lite_model", "deepseek-chat"))
+    return load_settings().get("lite_model", _DEFAULTS["lite_model"])
 
 
 def get_pro_model() -> str:
-    return get_settings().get("pro_model", _DEFAULTS.get("pro_model", "deepseek-chat"))
+    return load_settings().get("pro_model", _DEFAULTS["pro_model"])
 
 
 def get_max_model() -> str:
-    return get_settings().get("max_model", _DEFAULTS.get("max_model", "deepseek-reasoner"))
+    return load_settings().get("max_model", _DEFAULTS["max_model"])
 
 
 def get_max_tokens() -> int:
-    return get_settings()["max_tokens"]
+    return load_settings()["max_tokens"]
+
+
+def reset_settings() -> None:
+    """Reset settings cache (useful for testing)."""
+    global _settings
+    _settings = None

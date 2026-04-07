@@ -1,14 +1,26 @@
+"""
+Logger - formatted debug output for development.
+"""
 import json
+import logging
+import os
 
-DEBUG = True
+# Configure logger based on DEBUG environment variable
+DEBUG = os.environ.get("DEBUG", "").lower() in ("1", "true", "yes")
+
+logging.basicConfig(
+    level=logging.DEBUG if DEBUG else logging.WARNING,
+    format="%(message)s",
+)
+_logger = logging.getLogger("codedeepresearch")
 
 
 class Logger:
-    @staticmethod
-    def debug(msg: str, start="", end="\n", flush=False, **kwargs):
+    """Simple debug logger that prints formatted output when DEBUG is enabled."""
+
+    def debug(self, msg: str, start: str = "", end: str = "\n", flush: bool = False, **kwargs):
         if not DEBUG:
             return
-
         print(f"{start}{msg}", end=end, flush=flush)
         for key, value in kwargs.items():
             if value is None:
