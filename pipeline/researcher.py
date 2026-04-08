@@ -21,8 +21,9 @@ def research_modules(ctx: PipelineContext, report_dir: str) -> None:
     total = len(ctx.selected_modules)
 
     if parallel and total > 1:
-        print(f"  并行研究 {total} 个模块（最多 {max_eval_rounds} 轮评估）", flush=True)
-        with ThreadPoolExecutor(max_workers=min(total, 4)) as executor:
+        max_workers = settings.get("max_parallel_workers", 8)
+        print(f"  并行研究 {total} 个模块（最多 {max_eval_rounds} 轮评估，{max_workers} 并发）", flush=True)
+        with ThreadPoolExecutor(max_workers=min(total, max_workers)) as executor:
             futures = {}
             for module in ctx.selected_modules:
                 future = executor.submit(_research_single_module, ctx, module, tools, max_eval_rounds, report_dir, verbose=False)
@@ -49,6 +50,9 @@ def research_modules(ctx: PipelineContext, report_dir: str) -> None:
 
 
 def _research_single_module(ctx: PipelineContext, module: Module, tools: list, max_eval_rounds: int, report_dir: str, verbose: bool = True) -> None:
+    # Set project root in this thread — ContextVar does NOT propagate via ThreadPoolExecutor
+    set_project_root(ctx.project_path)
+
     tag = f"[{module.name}]"
     _print(verbose, f"  {tag} 开始研究 ({len(module.files)} 个文件)")
 
