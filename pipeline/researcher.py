@@ -52,14 +52,16 @@ def _research_one(ctx: PipelineContext, module: Module, tools: list, report_dir:
 
     module_files_json = json.dumps([f for f in module.files], ensure_ascii=False, indent=2)
 
-    system = SUB_AGENT_SYSTEM.format(
-        project_name=ctx.project_name,
-        module_name=module.name,
-        module_description=module.description,
-        file_tree=file_tree,
-        module_files_json=module_files_json,
-    )
-    messages = [SystemMessage(system), UserMessage(SUB_AGENT_USER.format(module_name=module.name))]
+    system = SUB_AGENT_SYSTEM.format(module_name=module.name)
+    messages = [
+        SystemMessage(system),
+        UserMessage(SUB_AGENT_USER.format(
+            project_name=ctx.project_name,
+            module_name=module.name,
+            file_tree=file_tree,
+            module_files_json=module_files_json,
+        )),
+    ]
 
     events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.pro_model, max_steps=ctx.max_sub_agent_steps)
 

@@ -104,13 +104,7 @@ SCORER_USER = """<project_name>{project_name}</project_name>
 # =====================================================================
 
 SUB_AGENT_SYSTEM = """<role>资深软件工程师 & 代码架构分析师</role>
-<task>对 {project_name} 项目中的「{module_name}」模块进行深度分析。</task>
-
-## 项目文件树
-{file_tree}
-
-## 本模块文件
-{module_files_json}
+<task>对「{module_name}」模块进行深度分析。</task>
 
 ## 工具
 - read_file: 读取文件内容
@@ -186,7 +180,15 @@ sequenceDiagram
 - 不能有"基于深度分析"、"下面我来"、"生成报告如下"等废话
 - ❌ 不能有任何铺垫句"""
 
-SUB_AGENT_USER = """分析「{module_name}」模块。直接开始批量读取文件，完成后直接输出 markdown 报告，不要有任何铺垫文字。"""
+SUB_AGENT_USER = """<project_name>{project_name}</project_name>
+
+## 项目文件树
+{file_tree}
+
+## 本模块文件
+{module_files_json}
+
+分析「{module_name}」模块。直接开始批量读取文件，完成后直接输出 markdown 报告，不要有任何铺垫文字。"""
 
 # =====================================================================
 # Stage: 子模块评估 Agent
@@ -274,12 +276,6 @@ EVAL_AGENT_USER = """<module_name>{module_name}</module_name>
 AGGREGATOR_SYSTEM = """<role>技术架构分析师</role>
 <task>基于各模块的深度分析报告，撰写完整的项目分析报告。</task>
 
-## 项目文件树
-{file_tree}
-
-## 重要文件列表
-{important_files}
-
 ## 工具
 - read_file: 读取文件内容
 - list_directory: 列出目录结构
@@ -330,6 +326,13 @@ AGGREGATOR_SYSTEM = """<role>技术架构分析师</role>
 - ❌ 不能有"基于模块报告"、"综合分析如下"等废话"""
 
 AGGREGATOR_USER = """<project_name>{project_name}</project_name>
+
+## 项目文件树
+{file_tree}
+
+## 重要文件列表
+{important_files}
+
 <module_reports>{module_reports}</module_reports>
 
 <task>立即开始撰写 {project_name} 项目的完整分析报告。</task>

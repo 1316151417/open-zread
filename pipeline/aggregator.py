@@ -17,14 +17,15 @@ def aggregate_reports(ctx: PipelineContext, selected: list) -> None:
     file_tree = _build_file_tree(ctx.all_files)
     important_files = list({f for m in selected for f in m.files})
 
-    system = AGGREGATOR_SYSTEM.format(
-        project_name=ctx.project_name,
-        file_tree=file_tree,
-        important_files=json.dumps(important_files, ensure_ascii=False, indent=2),
-    )
+    system = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name)
     messages = [
         SystemMessage(system),
-        UserMessage(AGGREGATOR_USER.format(project_name=ctx.project_name, module_reports=module_reports)),
+        UserMessage(AGGREGATOR_USER.format(
+            project_name=ctx.project_name,
+            file_tree=file_tree,
+            important_files=json.dumps(important_files, ensure_ascii=False, indent=2),
+            module_reports=module_reports,
+        )),
     ]
 
     events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.max_model, max_steps=ctx.max_sub_agent_steps)
