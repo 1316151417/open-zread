@@ -1,12 +1,12 @@
 """Stage 6: 最终报告汇总 - ReAct agent 整合所有模块报告."""
 import json
+from pathlib import Path
 
 from base.types import EventType, SystemMessage, UserMessage
 from agent.react_agent import stream as react_stream
 from pipeline.types import PipelineContext
-from prompt.pipeline_prompts import AGGREGATOR_SYSTEM, AGGREGATOR_USER, AGGREGATOR_EVAL_SYSTEM, AGGREGATOR_EVAL_USER
+from prompt.pipeline_prompts import AGGREGATOR_SYSTEM, AGGREGATOR_USER
 from tool.fs_tool import set_project_root, read_file, list_directory, glob_pattern, grep_content
-from provider.llm import call_llm, extract_json
 
 
 def aggregate_reports(ctx: PipelineContext, selected: list) -> None:
@@ -14,100 +14,116 @@ def aggregate_reports(ctx: PipelineContext, selected: list) -> None:
     tools = [read_file, list_directory, glob_pattern, grep_content]
 
     module_reports = "\n\n---\n\n".join(f"### 模块：{m.name}\n\n{m.research_report}" for m in selected)
-    max_eval_rounds = ctx.settings.get("max_eval_rounds", 1)
-    final_report = ""
-    eval_result = {"suggestions": []}
+    file_tree = _build_file_tree(ctx.all_files)
+    important_files = list({f for m in selected for f in m.files})
 
-    # === 阶段 1：多轮生成 + 评估反馈 ===
-    for round_num in range(1, max_eval_rounds + 1):
-        system_prompt = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name)
-        user_msg = AGGREGATOR_USER.format(project_name=ctx.project_name, module_reports=module_reports)
-        messages = [SystemMessage(system_prompt), UserMessage(user_msg)]
-
-        print(f"  汇总 agent 第 {round_num}/{max_eval_rounds} 轮：研究阶段...", flush=True)
-        events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.max_model, max_steps=ctx.max_sub_agent_steps)
-
-        step_contents = _collect_step_contents(events)
-        if not step_contents:
-            final_report = "# 错误：未能生成报告"
-            break
-
-        best_research = max(step_contents.values(), key=len)
-        print(f"  研究阶段完成，最佳内容 {len(best_research)} 字符", flush=True)
-
-        if round_num >= max_eval_rounds:
-            final_report = best_research
-            break
-
-        # 评估报告
-        print(f"  汇总 agent 正在评估报告质量...", flush=True)
-        eval_result = _evaluate_aggregator_report(ctx, best_research)
-
-        if eval_result.get("pass", False):
-            print(f"  汇总 agent 评估通过 (分数: {eval_result.get('total_score')})，进入最终生成", flush=True)
-            final_report = best_research
-            break
-        else:
-            suggestions = eval_result.get("suggestions", [])
-            print(f"  汇总 agent 评估未通过 (分数: {eval_result.get('total_score')})，改进后重试", flush=True)
-            for s in suggestions[:3]:
-                print(f"    → {s}", flush=True)
-            module_reports = best_research
-
-    # === 阶段 2：最终无工具生成 ===
-    system_prompt = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name)
-    final_messages = [
-        SystemMessage(system_prompt),
+    system = AGGREGATOR_SYSTEM.format(
+        project_name=ctx.project_name,
+        file_tree=file_tree,
+        important_files=json.dumps(important_files, ensure_ascii=False, indent=2),
+    )
+    messages = [
+        SystemMessage(system),
         UserMessage(AGGREGATOR_USER.format(project_name=ctx.project_name, module_reports=module_reports)),
-        UserMessage(f"以下是之前的研究结论，可作为参考：\n{final_report[:3000]}\n\n评估建议：\n{_get_suggestions_text(eval_result)}\n\n请综合以上信息，生成最终的完整中文项目分析报告。不再调用任何工具，直接输出报告。"),
     ]
 
-    print(f"  汇总 agent 最终生成（无工具模式）...", flush=True)
-    events2 = react_stream(messages=final_messages, tools=[], provider=ctx.provider, model=ctx.max_model, max_steps=ctx.max_sub_agent_steps)
-
-    step_contents2 = _collect_step_contents(events2)
-    if step_contents2:
-        ctx.final_report = max(step_contents2.values(), key=len)
-    elif final_report:
-        ctx.final_report = final_report
-    else:
-        ctx.final_report = "# 错误：未能生成报告"
+    events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.max_model, max_steps=ctx.max_sub_agent_steps)
+    ctx.final_report = _collect_report(events)
 
 
-def _collect_step_contents(events) -> dict:
-    step_contents = {}
-    step_count = 0
-    for event in events:
-        if event.type == EventType.STEP_START:
-            step_count += 1
-            print(f"  汇总 agent 步骤 {step_count}...", flush=True)
-        if event.type == EventType.STEP_END and event.content:
-            step_contents[event.step] = event.content
-            print(f"  汇总 agent 步骤 {step_count} 完成，内容 {len(event.content)} 字符", flush=True)
-        if event.type == EventType.TOOL_CALL:
-            print(f"  汇总 agent 调用工具: {event.tool_name}", flush=True)
-    return step_contents
+def _build_file_tree(files) -> str:
+    """构建文本形式的文件树。"""
+    tree = {}
+    for f in files:
+        parts = Path(f.path).parts
+        node = tree
+        for part in parts[:-1]:
+            node = node.setdefault(part + "/", {})
+        node[parts[-1]] = None
+
+    lines = ["project/"]
+    _render_tree(tree, lines, "")
+    return "".join(lines)
 
 
-def _evaluate_aggregator_report(ctx: PipelineContext, report: str) -> dict:
-    system_prompt = AGGREGATOR_EVAL_SYSTEM.format(project_name=ctx.project_name)
-    user_prompt = AGGREGATOR_EVAL_USER.format(project_name=ctx.project_name, report=report)
-
-    print(f"  [汇总评估] 调用评估 LLM...", flush=True)
-    response = call_llm(ctx.provider, system_prompt, user_prompt, model=ctx.max_model)
-    print(f"  [汇总评估] 评估响应 {len(response)} 字符", flush=True)
-
-    try:
-        result = json.loads(extract_json(response))
-        print(f"  [汇总评估] 评估结果: pass={result.get('pass')}, score={result.get('total_score')}", flush=True)
-        return result
-    except json.JSONDecodeError as e:
-        print(f"  [汇总评估] JSON 解析失败: {e}", flush=True)
-        return {"pass": True, "total_score": 30, "suggestions": []}
+def _render_tree(node: dict, lines: list, prefix: str) -> None:
+    items = sorted(node.items(), key=lambda x: (not isinstance(x[1], dict), x[0]))
+    for i, (name, value) in enumerate(items):
+        is_last = i == len(items) - 1
+        connector = "└── " if is_last else "├── "
+        if isinstance(value, dict):
+            lines.append(f"{prefix}{connector}{name}")
+            child_prefix = prefix + ("    " if is_last else "│   ")
+            _render_tree(value, lines, child_prefix)
+        else:
+            lines.append(f"{prefix}{connector}{name}")
 
 
-def _get_suggestions_text(eval_result: dict) -> str:
-    suggestions = eval_result.get("suggestions", [])
-    if not suggestions:
-        return "无具体建议"
-    return "\n".join(f"  - {s}" for s in suggestions)
+def _collect_report(events) -> str:
+    contents = [e.content for e in events if e.type == EventType.STEP_END and e.content]
+    return contents[-1] if contents else "（未能生成报告）"
+
+
+if __name__ == "__main__":
+    from dataclasses import dataclass
+
+    @dataclass
+    class MockModule:
+        name: str
+        description: str
+        files: list
+        research_report: str = ""
+
+    # 简单 mock，不要复杂结构
+    ctx = PipelineContext(
+        project_path="/Users/zhoujie/IdeaProjects/CodeDeepResearch",
+        project_name="CodeDeepResearch",
+        provider="anthropic",
+        pro_model="deepseek-chat",
+        max_model="deepseek-chat",
+        max_sub_agent_steps=20,
+        all_files=[],
+        modules=[],
+        settings={},
+    )
+
+    # 简单的模块报告 mock
+    ctx.modules = [
+        MockModule(
+            name="agent",
+            description="ReAct 智能体循环",
+            files=["agent/react_agent.py"],
+            research_report="""### 模块：agent
+
+## 模块定位
+本模块实现了 ReAct 模式的智能体循环...
+
+## 核心架构图
+...
+
+## 关键实现
+核心函数 `stream()` 实现了...
+""",
+        ),
+        MockModule(
+            name="pipeline",
+            description="流水线编排",
+            files=["pipeline/researcher.py"],
+            research_report="""### 模块：pipeline
+
+## 模块定位
+负责整体分析流程的 6 阶段编排...
+
+## 核心架构图
+...
+
+## 关键实现
+`run_pipeline()` 是主入口...
+""",
+        ),
+    ]
+
+    print("开始汇总测试...", flush=True)
+    aggregate_reports(ctx, ctx.modules)
+    print(f"\n汇总完成，报告长度: {len(ctx.final_report)} 字符")
+    print(ctx.final_report[:500])

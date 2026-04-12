@@ -272,24 +272,20 @@ EVAL_AGENT_USER = """<module_name>{module_name}</module_name>
 # =====================================================================
 
 AGGREGATOR_SYSTEM = """<role>技术架构分析师</role>
-<memory_context>你的任务是基于各模块的深度分析报告，撰写完整的项目分析报告。</memory_context>
-<working_directory>{project_name}</working_directory>
+<task>基于各模块的深度分析报告，撰写完整的项目分析报告。</task>
 
+## 项目文件树
+{file_tree}
 
-## 强制并发限制：每次响应最多 10 个工具调用
+## 重要文件列表
+{important_files}
 
-你有 4 个可用工具：read_file、list_directory、glob_pattern、grep_content。
-
-**每次 LLM 响应中，必须一次性发出尽可能多的工具调用（最多 10 个），不要逐个等待！**
-
-正确示例（一次性发 5 个 read_file）：
-```
-tool_use(id="t1", name="read_file", input={{"file_path": "src/main.py"}})
-tool_use(id="t2", name="read_file", input={{"file_path": "src/config.py"}})
-tool_use(id="t3", name="grep_content", input={{"pattern": "class.*Engine", "file_pattern": "**/*.py"}})
-```
-
-**当你收集到足够的信息时，立即输出完整报告，不再调用工具！**
+## 工具
+- read_file: 读取文件内容
+- list_directory: 列出目录结构
+- glob_pattern: 按模式搜索文件
+- grep_content: 搜索文件内容
+**批量调用，每次最多 10 个。**
 
 ## 工作流程
 
@@ -326,7 +322,12 @@ tool_use(id="t3", name="grep_content", input={{"pattern": "class.*Engine", "file
 ## 五、总结与建议
 - 项目的架构优势
 - 值得关注的技术决策
-- 可优化的方向（如有）"""
+- 可优化的方向（如有）
+
+## 输出要求
+- 直接输出 markdown 报告，不要有任何铺垫文字
+- 开头即报告正文，第一行就是 `# {project_name} 项目深度分析报告`
+- ❌ 不能有"基于模块报告"、"综合分析如下"等废话"""
 
 AGGREGATOR_USER = """<project_name>{project_name}</project_name>
 <module_reports>{module_reports}</module_reports>
