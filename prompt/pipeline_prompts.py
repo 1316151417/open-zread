@@ -2,45 +2,41 @@
 # Stage: LLM 文件过滤
 # =====================================================================
 
-FILE_FILTER_SYSTEM = """<role>代码架构过滤专家</role>
-<memory_context>你的任务是从大量文件列表中，精筛出对理解项目架构和核心逻辑有价值的文件。</memory_context>
-<clarification_system>
-**WORKFLOW: FILTER → VALIDATE → OUTPUT**
-1. 先理解项目是什么（从目录树推断技术栈和项目类型）
-2. 再判断每个文件是否属于"核心逻辑"
-3. 最后输出 JSON 数组
-</clarification_system>
-<response_style>只返回 JSON 数组，不要任何解释。</response_style>
+FILE_FILTER_SYSTEM = """<role>代码架构分析助手</role>
+<task>分析项目文件列表，标记不重要的文件。</task>
+<response_format>返回 JSON 对象，包含 unimportant_paths 数组，列出不重要的文件路径。</response_format>
 
-## 排除规则
+## 重要文件（保留）
 
-**测试相关**：单元测试、集成测试、测试夹具、mock 数据、测试配置
-**文档相关**：README、CHANGELOG、CONTRIBUTING、LICENSE 等纯文本文档
-**自动生成**：protobuf 生成代码、ORM migration、API 客户端桩代码、swagger 生成代码
-**纯配置/样板**：仅包含键值对而无逻辑的配置文件（如 i18n 翻译文件、静态路由表）
-**构建/部署**：Dockerfile、CI 配置、构建脚本（除非包含重要的架构决策）
-**IDE/编辑器**：编辑器配置、代码格式化配置、lint 规则
-**示例/演示**：example 目录下的文件、demo 代码、sample 数据
+- 核心业务逻辑、算法实现
+- API 入口（路由、控制器、CLI）
+- 数据模型、类型定义
+- 基础设施（中间件、认证、错误处理）
+- **配置文件**：pyproject.toml、settings.json、config.py、.python-version 等项目配置文件
+- **工具/工具类**：tool/ 目录下的工具模块
+- **重要文档**：README.md（项目介绍和使用说明）
 
-## 保留规则
+## 不重要文件（排除）
 
-**核心业务逻辑**：领域模型、业务规则、算法实现
-**API 入口**：路由处理器、控制器、CLI 入口、gRPC/REST 服务定义
-**数据模型**：数据结构定义、数据库模型、schema、类型定义
-**基础设施**：中间件、拦截器、认证授权、错误处理
-**工具库**：被多处引用的通用工具函数、辅助模块
-**配置（含逻辑）**：包含条件判断或影响运行行为的配置代码
-**状态管理**：状态机、工作流定义、事件处理器
+- **测试文件**：test_、_test、Test、Tests、TestCase、.spec.、.test.、conftest
+- **不重要文档**：CHANGELOG、LICENSE、CONTRIBUTING 等（README.md 除外）
+- **生成代码**：swagger 生成、protobuf、ORM migration、mock 数据
+- **构建/部署**：Dockerfile、Makefile、docker-compose、CI 配置
+- **IDE/编辑器**：.eslintrc、.prettierrc、.editorconfig 等
+- **示例/演示**：example、demo、sample 目录
 
 ## 示例
 
-输入：["src/main.py", "tests/test_main.py", "README.md", "src/config.py"]
-输出：["src/main.py", "src/config.py"]
-
-如果不确定，倾向于保留。"""
+输入：{{"files": [
+  {{"path": "src/main.py", "type": "code", "size": 1024}},
+  {{"path": "tests/test_main.py", "type": "code", "size": 256}},
+  {{"path": "README.md", "type": "doc", "size": 512}},
+  {{"path": "pyproject.toml", "type": "config", "size": 128}}
+]}}
+输出：{{"unimportant_paths": ["tests/test_main.py", "README.md"]}}"""
 
 FILE_FILTER_USER = """<project_name>{project_name}</project_name>
-<file_list>{file_list}</file_list>"""
+<files>{files_json}</files>"""
 
 DECOMPOSER_SYSTEM = """<role>软件架构分析师</role>
 <memory_context>你的任务是将项目的文件列表拆分为逻辑内聚的模块。</memory_context>

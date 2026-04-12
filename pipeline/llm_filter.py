@@ -8,19 +8,46 @@ from prompt.pipeline_prompts import FILE_FILTER_SYSTEM, FILE_FILTER_USER
 
 
 def llm_filter_files(ctx: PipelineContext) -> None:
-    file_list = "\n".join(f"  {f.path} ({f.size}B, {f.file_type})" for f in ctx.all_files)
-    user_msg = FILE_FILTER_USER.format(project_name=ctx.project_name, file_list=file_list)
+    # 构建文件 JSON 列表，只包含可能重要的文件
+    files_json = json.dumps([
+        {"path": f.path, "type": f.file_type, "size": f.size}
+        for f in ctx.all_files
+        if f.is_important  # 初始标记为重要的才送入 LLM 进一步过滤
+    ], ensure_ascii=False, indent=2)
 
+    user_msg = FILE_FILTER_USER.format(project_name=ctx.project_name, files_json=files_json)
     response = call_llm(ctx.provider, FILE_FILTER_SYSTEM, user_msg, model=ctx.lite_model, response_format={"type": "json_object"})
 
     try:
-        important_paths = json.loads(extract_json(response))
-    except json.JSONDecodeError:
-        ctx.important_files = list(ctx.all_files)
-        return
+        result = json.loads(extract_json(response))
+        unimportant_paths = set(result.get("unimportant_paths", []))
+    except (json.JSONDecodeError, KeyError, TypeError):
+        unimportant_paths = set()
 
-    path_set = set(important_paths)
-    ctx.important_files = [f for f in ctx.all_files if f.path in path_set]
+    # 修正 is_important 标记
+    for f in ctx.all_files:
+        if f.path in unimportant_paths:
+            f.is_important = False
 
-    if len(ctx.important_files) < 3:
-        ctx.important_files = list(ctx.all_files)
+
+if __name__ == "__main__":
+    import os
+    from pipeline.scanner import scan_project
+
+    project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch")
+    scan_project(ctx)
+
+    important_before = [f for f in ctx.all_files if f.is_important]
+    print(f"过滤前：{len(important_before)} 个重要文件\n")
+
+    llm_filter_files(ctx)
+
+    important_after = [f for f in ctx.all_files if f.is_important]
+    newly_unimportant = set(f.path for f in important_before) - set(f.path for f in important_after)
+
+    print(f"过滤后：{len(important_after)} 个重要文件\n")
+    if newly_unimportant:
+        print(f"新增不重要的文件：")
+        for path in sorted(newly_unimportant):
+            print(f"  - {path}")
