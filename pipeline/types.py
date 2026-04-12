@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 class FileInfo:
     path: str
     size: int
-    extension: str
-    is_text: bool
+    file_type: str = ""  # code, doc, config, log
+    is_important: bool = True
 
 
 @dataclass
@@ -32,10 +32,6 @@ class PipelineContext:
 
     # Stage 1: scanner output
     all_files: list[FileInfo] = field(default_factory=list)
-    tree_text: str = ""
-
-    # Stage 2: basic filter output
-    filtered_files: list[FileInfo] = field(default_factory=list)
 
     # Stage 3: LLM filter output
     important_files: list[FileInfo] = field(default_factory=list)

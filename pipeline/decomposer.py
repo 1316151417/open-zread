@@ -8,7 +8,7 @@ from prompt.pipeline_prompts import DECOMPOSER_SYSTEM, DECOMPOSER_USER
 
 def decompose_into_modules(ctx: PipelineContext) -> None:
     file_list = "\n".join(f"  {f.path} ({f.size}B)" for f in ctx.important_files)
-    user_msg = DECOMPOSER_USER.format(project_name=ctx.project_name, tree_text=ctx.tree_text, file_list=file_list)
+    user_msg = DECOMPOSER_USER.format(project_name=ctx.project_name, file_list=file_list)
 
     response = call_llm(ctx.provider, DECOMPOSER_SYSTEM, user_msg, model=ctx.lite_model)
 

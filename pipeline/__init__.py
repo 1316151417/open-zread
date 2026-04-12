@@ -54,7 +54,6 @@ def run_pipeline(
     print(f"{'='*60}")
     scan_project(ctx)
     print(f"  扫描到 {len(ctx.all_files)} 个文件")
-    print(f"  基础过滤后剩余 {len(ctx.filtered_files)} 个文件")
 
     # ====== 阶段 2: LLM 智能过滤 ======
     print(f"\n{'='*60}")

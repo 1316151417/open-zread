@@ -20,7 +20,7 @@ def aggregate_reports(ctx: PipelineContext) -> None:
 
     # === 阶段 1：多轮生成 + 评估反馈 ===
     for round_num in range(1, max_eval_rounds + 1):
-        system_prompt = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name, tree_text=ctx.tree_text)
+        system_prompt = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name)
         user_msg = AGGREGATOR_USER.format(project_name=ctx.project_name, module_reports=module_reports)
         messages = [SystemMessage(system_prompt), UserMessage(user_msg)]
 
@@ -55,7 +55,7 @@ def aggregate_reports(ctx: PipelineContext) -> None:
             module_reports = best_research
 
     # === 阶段 2：最终无工具生成 ===
-    system_prompt = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name, tree_text=ctx.tree_text)
+    system_prompt = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name)
     final_messages = [
         SystemMessage(system_prompt),
         UserMessage(AGGREGATOR_USER.format(project_name=ctx.project_name, module_reports=module_reports)),

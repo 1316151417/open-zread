@@ -40,7 +40,6 @@ FILE_FILTER_SYSTEM = """<role>代码架构过滤专家</role>
 如果不确定，倾向于保留。"""
 
 FILE_FILTER_USER = """<project_name>{project_name}</project_name>
-<tree_text>{tree_text}</tree_text>
 <file_list>{file_list}</file_list>"""
 
 DECOMPOSER_SYSTEM = """<role>软件架构分析师</role>
@@ -71,7 +70,6 @@ DECOMPOSER_SYSTEM = """<role>软件架构分析师</role>
 ```"""
 
 DECOMPOSER_USER = """<project_name>{project_name}</project_name>
-<tree_text>{tree_text}</tree_text>
 <file_list>{file_list}</file_list>"""
 
 SCORER_SYSTEM = """<role>软件架构评估专家</role>
@@ -313,8 +311,6 @@ AGGREGATOR_SYSTEM = """<role>技术架构分析师</role>
 <memory_context>你的任务是基于各模块的深度分析报告，撰写完整的项目分析报告。</memory_context>
 <working_directory>{project_name}</working_directory>
 
-## 项目目录结构
-{tree_text}
 
 ## 强制并发限制：每次响应最多 10 个工具调用
 
