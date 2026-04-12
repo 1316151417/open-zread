@@ -52,7 +52,7 @@ def _research_one(ctx: PipelineContext, module: Module, tools: list, report_dir:
 
     module_files_json = json.dumps([f for f in module.files], ensure_ascii=False, indent=2)
 
-    system = SUB_AGENT_SYSTEM.format(module_name=module.name)
+    system = SUB_AGENT_SYSTEM.format()
     messages = [
         SystemMessage(system),
         UserMessage(SUB_AGENT_USER.format(

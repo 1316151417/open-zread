@@ -104,7 +104,7 @@ SCORER_USER = """<project_name>{project_name}</project_name>
 # =====================================================================
 
 SUB_AGENT_SYSTEM = """<role>资深软件工程师 & 代码架构分析师</role>
-<task>对「{module_name}」模块进行深度分析。</task>
+<task>对指定模块进行深度分析。</task>
 
 ## 工具
 - read_file: 读取文件内容
@@ -122,7 +122,7 @@ SUB_AGENT_SYSTEM = """<role>资深软件工程师 & 代码架构分析师</role>
 
 ## 报告结构
 
-### 模块：{module_name}
+### 模块：（见用户提示词中的模块名）
 
 #### 一、模块定位
 本模块的职责、解决的问题、在项目中的地位。
@@ -176,11 +176,12 @@ sequenceDiagram
 
 ## 输出要求
 - 直接输出 markdown 报告内容，不要加任何铺垫、解释性文字
-- 开头即报告正文，第一行就是 `# 模块：{module_name}`
+- 开头即报告正文，第一行是用户提示词中指定的模块标题
 - 不能有"基于深度分析"、"下面我来"、"生成报告如下"等废话
 - ❌ 不能有任何铺垫句"""
 
 SUB_AGENT_USER = """<project_name>{project_name}</project_name>
+<module_name>{module_name}</module_name>
 
 ## 项目文件树
 {file_tree}
@@ -296,7 +297,7 @@ AGGREGATOR_SYSTEM = """<role>技术架构分析师</role>
 
 ## 报告结构（必须使用中文）
 
-# {project_name} 项目深度分析报告
+# 项目深度分析报告（标题见用户提示词）
 
 ## 一、项目概述
 用 3-5 句话概括项目的技术栈、核心功能和整体架构风格。
@@ -322,7 +323,7 @@ AGGREGATOR_SYSTEM = """<role>技术架构分析师</role>
 
 ## 输出要求
 - 直接输出 markdown 报告，不要有任何铺垫文字
-- 开头即报告正文，第一行就是 `# {project_name} 项目深度分析报告`
+- 开头即报告正文，第一行是用户提示词中指定的项目标题
 - ❌ 不能有"基于模块报告"、"综合分析如下"等废话"""
 
 AGGREGATOR_USER = """<project_name>{project_name}</project_name>
