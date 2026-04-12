@@ -6,6 +6,7 @@ import re
 import threading
 from queue import Queue, Empty
 
+from log.logger import logger
 from provider.adaptor import LLMAdaptor
 from base.types import Event, EventType, ToolMessage, AssistantMessage
 
@@ -27,8 +28,7 @@ def _stream_with_timeout(adaptor, messages, tools, model, timeout):
                 result_queue.put(("event", event))
             result_queue.put(("done", None))
         except Exception as e:
-            import traceback
-            result_queue.put(("exception", f"{e}\n{traceback.format_exc()}"))
+            result_queue.put(("exception", str(e)))
 
     t = threading.Thread(target=worker, daemon=True)
     t.start()
@@ -61,15 +61,17 @@ def _execute_tool(tool, tool_arguments: str):
     try:
         args = _parse_tool_arguments(tool_arguments)
         result = tool(**args)
+        logger.debug(f"[ReAct] 工具结果: {str(result)[:100]}...")
         return result, None
     except Exception as e:
-        import traceback
-        print(f"  !!! 工具执行失败 {tool.name}: {e}\n{traceback.format_exc()}", flush=True)
+        logger.debug(f"[ReAct] 工具执行失败 {tool.name}: {e}")
         return None, str(e)
 
 
 def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP_CNT):
     """ReAct stream generator: yields events for each step."""
+    logger.debug(f"[ReAct] 开始 (provider={provider}, model={model}, max_steps={max_steps})", tools=tools)
+
     adaptor = LLMAdaptor(provider=provider)
     react_finished = False
     step = 1
@@ -84,10 +86,12 @@ def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP
         raw_tool_calls = []
         tool_results = {}
 
+        logger.debug(f"[ReAct] 步骤 {cur_step} 开始")
+
         try:
             stream_iter = _stream_with_timeout(adaptor, messages, tools, model, STREAM_TIMEOUT_PER_STEP)
         except TimeoutError as e:
-            print(f"  [TIMEOUT] 步骤 {cur_step} LLM 调用超时: {e}", flush=True)
+            logger.debug(f"[ReAct] 步骤 {cur_step} 超时: {e}")
             yield Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step)
             break
 
@@ -96,10 +100,15 @@ def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP
                 yield event
                 if event.type == EventType.THINKING_DELTA:
                     thinking += event.content or ""
+                    if event.content:
+                        logger.debug(event.content, end="")
                 elif event.type == EventType.CONTENT_DELTA:
                     content += event.content or ""
+                    if event.content:
+                        logger.debug(event.content, end="")
                 elif event.type == EventType.TOOL_CALL:
                     raw_tool_calls.append(event.raw)
+                    logger.debug(f"[ReAct] 调用工具: {event.tool_name}({event.tool_arguments[:80] if event.tool_arguments else ''}...)")
                     tool = next((t for t in tools if t.name == event.tool_name), None)
                     if tool is None:
                         tool_results[event.tool_id] = {"result": None, "error": f"Tool '{event.tool_name}' not found"}
@@ -109,11 +118,13 @@ def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP
                         tool_results[event.tool_id] = {"result": result, "error": error}
                         yield Event(type=EventType.TOOL_CALL_SUCCESS if not error else EventType.TOOL_CALL_FAILED, tool_id=event.tool_id, tool_name=event.tool_name, tool_arguments=event.tool_arguments, tool_result=result, tool_error=error)
         except TimeoutError as e:
-            print(f"  [TIMEOUT] 步骤 {cur_step} LLM 调用超时: {e}", flush=True)
+            logger.debug(f"[ReAct] 步骤 {cur_step} 超时: {e}")
             yield Event(type=EventType.STEP_END, content="[超时，内容无法获取]", step=cur_step)
             break
 
         filtered_content = TOOL_CALL_RE.sub('', content).strip()
+        logger.debug(f"[ReAct] 步骤 {cur_step} 结束，输出长度: {len(filtered_content)}")
+
         yield Event(type=EventType.STEP_END, content=filtered_content, step=cur_step)
 
         if not raw_tool_calls:
@@ -125,3 +136,5 @@ def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP
             tid = raw_tc["id"]
             tr = tool_results[tid]
             messages.append(ToolMessage(tool_id=tid, tool_name=raw_tc["name"], tool_result=tr["result"], tool_error=tr["error"]))
+
+    logger.debug(f"[ReAct] 结束")

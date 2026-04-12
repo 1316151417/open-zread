@@ -7,12 +7,13 @@ import os
 
 # Configure logger based on DEBUG environment variable
 DEBUG = os.environ.get("DEBUG", "").lower() in ("1", "true", "yes")
+DEBUG = True  # 强制启用 DEBUG 模式，始终打印日志
 
-logging.basicConfig(
-    level=logging.DEBUG if DEBUG else logging.WARNING,
-    format="%(message)s",
-)
-_logger = logging.getLogger("codedeepresearch")
+# 禁止 httpx/httpcore 的 debug 日志（即使 DEBUG=1 也不打印 HTTP 请求日志）
+for _lib in ("httpx", "httpcore", "openai", "anthropic", "urllib3"):
+    _lg = logging.getLogger(_lib)
+    _lg.setLevel(logging.WARNING)
+    _lg.propagate = False
 
 
 class Logger:
