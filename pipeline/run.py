@@ -43,7 +43,7 @@ def run_pipeline(
     )
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M")
-    report_dir = os.path.join(os.getcwd(), "report", project_name, timestamp)
+    report_dir = os.path.join(os.getcwd(), ".report", project_name, timestamp)
     os.makedirs(report_dir, exist_ok=True)
     print(f"报告输出目录: {report_dir}")
 

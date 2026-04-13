@@ -20,7 +20,7 @@ def main():
     parser.add_argument(
         "--output", "-o",
         default=None,
-        help="输出文件路径 (默认: 写入 report/ 目录)",
+        help="输出文件路径 (默认: 写入 .report/ 目录)",
     )
 
     args = parser.parse_args()

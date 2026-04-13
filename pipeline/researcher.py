@@ -122,7 +122,7 @@ if __name__ == "__main__":
     score_and_rank_modules(ctx)
 
     selected = ctx.modules[:1]
-    report_dir = os.path.join(os.getcwd(), "report", ctx.project_name)
+    report_dir = os.path.join(os.getcwd(), ".report", ctx.project_name)
     os.makedirs(report_dir, exist_ok=True)
 
     research_modules(ctx, report_dir, selected)
