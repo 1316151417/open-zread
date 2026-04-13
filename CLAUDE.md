@@ -17,6 +17,9 @@ uv run python main.py /path/to/project
 # 指定配置文件
 uv run python main.py /path/to/project --settings /path/to/settings.json
 
+# 输出到指定文件
+uv run python main.py /path/to/project -o output.md
+
 # 运行测试
 python test/llm_test.py
 
@@ -43,7 +46,7 @@ export DEBUG=1  # 启用调试日志输出
 1. **scanner** — 遍历文件，收集大小/扩展名/路径，硬编码过滤 node_modules/.git/test/docs
 2. **llm_filter** — 基于项目类型判断文件重要性，LLM 智能过滤
 3. **decomposer** — 按目录结构 + import 关系划分模块
-4. **scorer** — 核心度/依赖度/入口/领域独特性评分，取 top N
+4. **scorer** — 核心度/依赖度/入口/领域独特性评分
 5. **researcher** — 并行 ReAct agent 深度研究，每模块生成→评估→重试→最终
 6. **aggregator** — ReAct agent 整合所有模块报告，生成→评估→重试→最终
 
@@ -67,12 +70,14 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 | 文件 | 职责 |
 |------|------|
 | `base/types.py` | 核心类型：EventType/Event/Tool/Message 体系/@tool 装饰器 |
-| `provider/llm.py` | 共享 LLM 工具：`call_llm`、`extract_json`、`call_llm_sync` |
-| `provider/adaptor.py` | 统一流式接口，OpenAI/Anthropic 协议互转 |
-| `provider/deepseek_base.py` | DeepSeek API 客户端实现，两种协议的 call/call_stream |
+| `provider/adaptor.py` | LLMAdaptor 统一流式接口，OpenAI/Anthropic 协议互转，上下文压缩 |
+| `provider/api/anthropic_api.py` | Anthropic 协议客户端实现 |
+| `provider/api/openai_api.py` | OpenAI 协议客户端实现 |
 | `agent/react_agent.py` | ReAct 循环：消费事件、执行工具、维护多轮对话 |
-| `pipeline/__init__.py` | `run_pipeline()` 入口，6 阶段调度 |
+| `pipeline/run.py` | `run_pipeline()` 入口，6 阶段调度 |
+| `pipeline/types.py` | PipelineContext/Module/FileInfo 数据结构 |
 | `prompt/pipeline_prompts.py` | 所有提示词定义：FILE_FILTER/SCORER/SUB_AGENT/EVAL/AGGREGATOR 等 |
+| `prompt/react_prompts.py` | ReAct agent 专用提示词 |
 | `tool/fs_tool.py` | 文件系统工具：read_file/list_directory/glob_pattern/grep_content（线程安全） |
 | `log/printer.py` | 事件格式化打印，流式输出追踪 |
 | `log/logger.py` | 调试日志，DEBUG=1 启用 |
@@ -85,17 +90,32 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 4. **三级模型分层**：lite=过滤/pro=研究/max=汇总，平衡速度与质量
 5. **tool_use 文本过滤**：`STEP_END` 过滤 LLM 误输出的 `tool_use(...)` 文本
 6. **流式超时保护**：daemon thread + Queue + 120s per step + 60s LLM call
-7. **上下文压缩**：`COMPRESS_SYSTEM` 提示词用于多轮对话摘要，保留关键引用减少 token 消耗
+7. **上下文压缩**：`MAX_CONTEXT_CHARS=200000` 阈值，自动压缩超长对话保留关键引用
 
 ### Settings Configuration (`settings.json`)
 
+三级模型独立配置，每级包含 provider/base_url/api_key/model/max_tokens：
+
+```json
+{
+  "lite": { "provider": "anthropic", "base_url": "https://api.deepseek.com/anthropic", "model": "deepseek-chat" },
+  "pro":  { "provider": "anthropic", "base_url": "https://api.deepseek.com/anthropic", "model": "deepseek-chat" },
+  "max":  { "provider": "anthropic", "base_url": "https://api.deepseek.com/anthropic", "model": "deepseek-reasoner" },
+  "max_sub_agent_steps": 30,
+  "research_parallel": true,
+  "research_threads": 10,
+  "debug": false
+}
+```
+
 | 配置项 | 说明 |
 |--------|------|
-| `provider` | `anthropic` 或 `openai`（均走 DeepSeek API 端点） |
-| `lite_model` | 分类/过滤/打分用（速度快） |
-| `pro_model` | 子模块深度分析 + 评估用（推理能力强） |
-| `max_model` | 最终汇总用（最强推理） |
+| `lite` | 分类/过滤/打分用（速度快） |
+| `pro` | 子模块深度分析 + 评估用（推理能力强） |
+| `max` | 最终汇总用（最强推理） |
 | `max_sub_agent_steps` | 每个 agent 的最大步数 |
+| `research_parallel` | 是否并行研究模块 |
+| `research_threads` | 并行研究线程数 |
 
 ## Dependencies
 
