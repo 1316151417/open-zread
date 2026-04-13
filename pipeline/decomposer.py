@@ -14,7 +14,7 @@ def decompose_into_modules(ctx: PipelineContext) -> None:
     ], ensure_ascii=False, indent=2)
 
     user_msg = DECOMPOSER_USER.format(project_name=ctx.project_name, files_json=files_json)
-    response = call_llm(ctx.provider, DECOMPOSER_SYSTEM, user_msg, model=ctx.lite_model, response_format={"type": "json_object"})
+    response = call_llm(ctx.lite_config, DECOMPOSER_SYSTEM, user_msg, response_format={"type": "json_object"})
 
     result = json.loads(extract_json(response))
     modules_data = result.get("modules", [])
@@ -37,9 +37,10 @@ if __name__ == "__main__":
     import os
     from pipeline.llm_filter import llm_filter_files
     from pipeline.scanner import scan_project
+    from settings import get_lite_config
 
     project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch")
+    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch", lite_config=get_lite_config())
     scan_project(ctx)
     llm_filter_files(ctx)
 

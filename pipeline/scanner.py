@@ -79,9 +79,11 @@ def scan_project(ctx: PipelineContext) -> None:
 
 if __name__ == "__main__":
     import sys
+    from settings import get_lite_config
+
     project_path = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    ctx = PipelineContext(project_path=project_path, project_name=os.path.basename(project_path))
+    ctx = PipelineContext(project_path=project_path, project_name=os.path.basename(project_path), lite_config=get_lite_config())
     scan_project(ctx)
 
     important = [f for f in ctx.all_files if f.is_important]

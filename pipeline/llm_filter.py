@@ -16,7 +16,7 @@ def llm_filter_files(ctx: PipelineContext) -> None:
     ], ensure_ascii=False, indent=2)
 
     user_msg = FILE_FILTER_USER.format(project_name=ctx.project_name, files_json=files_json)
-    response = call_llm(ctx.provider, FILE_FILTER_SYSTEM, user_msg, model=ctx.lite_model, response_format={"type": "json_object"})
+    response = call_llm(ctx.lite_config, FILE_FILTER_SYSTEM, user_msg, response_format={"type": "json_object"})
 
     try:
         result = json.loads(extract_json(response))
@@ -33,9 +33,10 @@ def llm_filter_files(ctx: PipelineContext) -> None:
 if __name__ == "__main__":
     import os
     from pipeline.scanner import scan_project
+    from settings import get_lite_config
 
     project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch")
+    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch", lite_config=get_lite_config())
     scan_project(ctx)
 
     important_before = [f for f in ctx.all_files if f.is_important]

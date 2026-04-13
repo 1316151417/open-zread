@@ -22,10 +22,9 @@ class Module:
 class PipelineContext:
     project_path: str
     project_name: str
-    provider: str = "anthropic"
-    lite_model: str = "deepseek-chat"
-    pro_model: str = "deepseek-chat"
-    max_model: str = "deepseek-reasoner"
+    lite_config: dict = field(default_factory=dict)
+    pro_config: dict = field(default_factory=dict)
+    max_config: dict = field(default_factory=dict)
     max_sub_agent_steps: int = 30
     research_parallel: bool = False
     research_threads: int = 4
@@ -39,3 +38,23 @@ class PipelineContext:
 
     # Stage 5: aggregator output
     final_report: str = ""
+
+    @property
+    def provider(self) -> str:
+        """Legacy property for backward compatibility."""
+        return self.lite_config.get("provider", "anthropic")
+
+    @property
+    def lite_model(self) -> str:
+        """Legacy property for backward compatibility."""
+        return self.lite_config.get("model", "deepseek-chat")
+
+    @property
+    def pro_model(self) -> str:
+        """Legacy property for backward compatibility."""
+        return self.pro_config.get("model", "deepseek-chat")
+
+    @property
+    def max_model(self) -> str:
+        """Legacy property for backward compatibility."""
+        return self.max_config.get("model", "deepseek-reasoner")

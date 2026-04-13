@@ -4,6 +4,7 @@ from prompt.test_system_prompt import SYSTEM_PROMPT
 from tool.test_tool import get_weather, get_temperature
 from agent import react_agent
 from log.printer import print_event
+from settings import get_lite_config
 
 messages = [
     SystemMessage(SYSTEM_PROMPT),
@@ -12,14 +13,14 @@ messages = [
 tools = [get_weather]
 
 def adaptor_test():
-    # adaptor = LLMAdaptor(provider="openai")
-    adaptor = LLMAdaptor(provider="anthropic")
+    config = get_lite_config()
+    adaptor = LLMAdaptor(config)
     for event in adaptor.stream(messages=messages, tools=tools):
         print_event(event)
 
 def react_test():
-    # for event in react_agent.stream(messages=messages, tools=tools, provider="openai"):
-    for event in react_agent.stream(messages=messages, tools=tools, provider="anthropic"):
+    config = get_lite_config()
+    for event in react_agent.stream(messages=messages, tools=tools, config=config):
         print_event(event)
 
 if __name__ == "__main__":

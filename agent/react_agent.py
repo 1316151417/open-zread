@@ -11,12 +11,9 @@ from base.types import Event, EventType, ToolMessage, AssistantMessage
 MAX_STEP_CNT = 30
 
 
-def _stream(adaptor, messages, tools, model):
+def _stream(adaptor, messages, tools):
     """直接透传 adaptor.stream() 的迭代器。"""
-    kwargs = {}
-    if model:
-        kwargs["model"] = model
-    yield from adaptor.stream(messages, tools=tools, **kwargs)
+    yield from adaptor.stream(messages, tools=tools)
 
 
 def _parse_tool_arguments(arguments_str: str) -> dict:
@@ -41,14 +38,21 @@ def _execute_tool(tool, tool_arguments: str):
         return None, str(e)
 
 
-def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP_CNT):
-    """ReAct stream generator: yields events for each step."""
-    logger.debug(f"[ReAct] 开始 (provider={provider}, model={model}, max_steps={max_steps})")
+def stream(messages, tools, config: dict, max_steps=MAX_STEP_CNT):
+    """ReAct stream generator: yields events for each step.
+
+    Args:
+        messages: list of messages
+        tools: list of Tool objects
+        config: dict containing {provider, base_url, api_key, model, max_tokens}
+        max_steps: maximum number of steps
+    """
+    logger.debug(f"[ReAct] 开始 (provider={config.get('provider')}, model={config.get('model')}, max_steps={max_steps})")
     for msg in messages:
         logger.debug(f"[ReAct] 消息: {msg}")
     logger.debug(f"[ReAct] 工具定义: {[t.name for t in tools]}")
 
-    adaptor = LLMAdaptor(provider=provider)
+    adaptor = LLMAdaptor(config)
     react_finished = False
     step = 1
 
@@ -64,7 +68,7 @@ def stream(messages, tools, provider="anthropic", model=None, max_steps=MAX_STEP
 
         logger.debug(f"[ReAct] 步骤 {cur_step} 开始")
 
-        for event in _stream(adaptor, messages, tools, model):
+        for event in _stream(adaptor, messages, tools):
             yield event
             if event.type == EventType.THINKING_DELTA:
                 thinking += event.content or ""

@@ -5,17 +5,44 @@ import json
 import os
 
 _DEFAULTS = {
-    "provider": "anthropic",
-    "lite_model": "deepseek-chat",
-    "pro_model": "deepseek-chat",
-    "max_model": "deepseek-reasoner",
-    "max_tokens": 16384,
+    "lite": {
+        "provider": "anthropic",
+        "base_url": "https://api.deepseek.com/anthropic",
+        "api_key": "${DEEPSEEK_API_KEY}",
+        "model": "deepseek-chat",
+        "max_tokens": 16384,
+    },
+    "pro": {
+        "provider": "anthropic",
+        "base_url": "https://api.deepseek.com/anthropic",
+        "api_key": "${DEEPSEEK_API_KEY}",
+        "model": "deepseek-chat",
+        "max_tokens": 16384,
+    },
+    "max": {
+        "provider": "openai",
+        "base_url": "https://api.deepseek.com",
+        "api_key": "${DEEPSEEK_API_KEY}",
+        "model": "deepseek-reasoner",
+        "max_tokens": 16384,
+    },
     "max_sub_agent_steps": 30,
     "research_parallel": False,
     "research_threads": 4,
 }
 
 _settings = None
+
+
+def _expand_env_vars(obj):
+    """Recursively expand ${VAR} environment variables in strings."""
+    if isinstance(obj, str):
+        return os.path.expandvars(obj)
+    elif isinstance(obj, dict):
+        return {k: _expand_env_vars(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_expand_env_vars(item) for item in obj]
+    return obj
 
 
 def load_settings(path: str | None = None) -> dict:
@@ -37,9 +64,14 @@ def load_settings(path: str | None = None) -> dict:
     if path and os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
             user_settings = json.load(f)
-        _settings = {**_DEFAULTS, **user_settings}
+        merged = {**_DEFAULTS, **user_settings}
+        # Expand env vars in tier configs
+        for tier in ["lite", "pro", "max"]:
+            if tier in merged and tier in _DEFAULTS:
+                merged[tier] = {**_DEFAULTS[tier], **merged.get(tier, {})}
+        _settings = _expand_env_vars(merged)
     else:
-        _settings = dict(_DEFAULTS)
+        _settings = _expand_env_vars(dict(_DEFAULTS))
 
     return _settings
 
@@ -49,7 +81,8 @@ def get_settings() -> dict:
 
 
 def get_provider() -> str:
-    return load_settings()["provider"]
+    """Legacy function - returns lite provider for backward compatibility."""
+    return get_lite_config()["provider"]
 
 
 def get_model() -> str:
@@ -57,16 +90,28 @@ def get_model() -> str:
     return get_lite_model()
 
 
+def get_lite_config() -> dict:
+    return load_settings()["lite"]
+
+
+def get_pro_config() -> dict:
+    return load_settings()["pro"]
+
+
+def get_max_config() -> dict:
+    return load_settings()["max"]
+
+
 def get_lite_model() -> str:
-    return load_settings().get("lite_model", _DEFAULTS["lite_model"])
+    return get_lite_config()["model"]
 
 
 def get_pro_model() -> str:
-    return load_settings().get("pro_model", _DEFAULTS["pro_model"])
+    return get_pro_config()["model"]
 
 
 def get_max_model() -> str:
-    return load_settings().get("max_model", _DEFAULTS["max_model"])
+    return get_max_config()["model"]
 
 
 def get_max_tokens() -> int:

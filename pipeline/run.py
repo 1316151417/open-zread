@@ -2,7 +2,7 @@
 import os
 from datetime import datetime
 
-from settings import load_settings, get_lite_model, get_pro_model, get_max_model
+from settings import load_settings, get_lite_config, get_pro_config, get_max_config
 from pipeline.types import PipelineContext
 from pipeline.scanner import scan_project
 from pipeline.llm_filter import llm_filter_files
@@ -21,23 +21,21 @@ def run_pipeline(
     project_path = os.path.abspath(project_path)
     project_name = os.path.basename(project_path)
 
-    provider = settings["provider"]
+    lite_config = get_lite_config()
+    pro_config = get_pro_config()
+    max_config = get_max_config()
     max_sub_agent_steps = settings["max_sub_agent_steps"]
     research_parallel = settings["research_parallel"]
     research_threads = settings["research_threads"]
-    lite_model = get_lite_model()
-    pro_model = get_pro_model()
-    max_model = get_max_model()
 
-    print(f"模型配置: lite={lite_model}, pro={pro_model}, max={max_model}")
+    print(f"模型配置: lite={lite_config['model']}, pro={pro_config['model']}, max={max_config['model']}")
 
     ctx = PipelineContext(
         project_path=project_path,
         project_name=project_name,
-        provider=provider,
-        lite_model=lite_model,
-        pro_model=pro_model,
-        max_model=max_model,
+        lite_config=lite_config,
+        pro_config=pro_config,
+        max_config=max_config,
         max_sub_agent_steps=max_sub_agent_steps,
         research_parallel=research_parallel,
         research_threads=research_threads,

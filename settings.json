@@ -1,9 +1,25 @@
 {
-  "provider": "anthropic",
-  "lite_model": "deepseek-chat",
-  "pro_model": "deepseek-chat",
-  "max_model": "deepseek-reasoner",
-  "max_tokens": 16384,
+  "lite": {
+    "provider": "anthropic",
+    "base_url": "https://api.deepseek.com/anthropic",
+    "api_key": "${DEEPSEEK_API_KEY}",
+    "model": "deepseek-chat",
+    "max_tokens": 16384
+  },
+  "pro": {
+    "provider": "anthropic",
+    "base_url": "https://api.deepseek.com/anthropic",
+    "api_key": "${DEEPSEEK_API_KEY}",
+    "model": "deepseek-chat",
+    "max_tokens": 16384
+  },
+  "max": {
+    "provider": "openai",
+    "base_url": "https://api.deepseek.com",
+    "api_key": "${DEEPSEEK_API_KEY}",
+    "model": "deepseek-reasoner",
+    "max_tokens": 16384
+  },
   "max_sub_agent_steps": 30,
   "research_parallel": true,
   "research_threads": 10

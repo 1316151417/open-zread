@@ -28,7 +28,7 @@ def aggregate_reports(ctx: PipelineContext, selected: list) -> None:
         )),
     ]
 
-    events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.max_model, max_steps=ctx.max_sub_agent_steps)
+    events = react_stream(messages=messages, tools=tools, config=ctx.max_config, max_steps=ctx.max_sub_agent_steps)
     ctx.final_report = _collect_report(events)
 
 
@@ -67,6 +67,7 @@ def _collect_report(events) -> str:
 
 if __name__ == "__main__":
     from dataclasses import dataclass
+    from settings import get_pro_config, get_max_config
 
     @dataclass
     class MockModule:
@@ -79,9 +80,8 @@ if __name__ == "__main__":
     ctx = PipelineContext(
         project_path="/Users/zhoujie/IdeaProjects/CodeDeepResearch",
         project_name="CodeDeepResearch",
-        provider="anthropic",
-        pro_model="deepseek-chat",
-        max_model="deepseek-chat",
+        pro_config=get_pro_config(),
+        max_config=get_max_config(),
         max_sub_agent_steps=30,
         all_files=[],
         modules=[],

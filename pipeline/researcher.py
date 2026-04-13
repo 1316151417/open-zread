@@ -80,7 +80,7 @@ def _research_one(ctx: PipelineContext, module: Module, tools: list, report_dir:
         )),
     ]
 
-    events = react_stream(messages=messages, tools=tools, provider=ctx.provider, model=ctx.pro_model, max_steps=ctx.max_sub_agent_steps)
+    events = react_stream(messages=messages, tools=tools, config=ctx.pro_config, max_steps=ctx.max_sub_agent_steps)
 
     module.research_report = _collect_report(events)
 
@@ -112,9 +112,10 @@ if __name__ == "__main__":
     from pipeline.llm_filter import llm_filter_files
     from pipeline.decomposer import decompose_into_modules
     from pipeline.scorer import score_and_rank_modules
+    from settings import get_lite_config, get_pro_config
 
     project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch")
+    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch", lite_config=get_lite_config(), pro_config=get_pro_config())
     scan_project(ctx)
     llm_filter_files(ctx)
     decompose_into_modules(ctx)

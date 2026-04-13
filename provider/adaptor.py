@@ -10,17 +10,26 @@ COMPRESS_KEEP_RECENT = 6
 
 
 class LLMAdaptor:
-    def __init__(self, provider="anthropic"):
-        if provider == "openai":
-            from provider.openai.deepseek_api import call_stream, call
-        elif provider == "anthropic":
-            from provider.anthropic.deepseek_api import call_stream, call
+    def __init__(self, config: dict):
+        """
+        Initialize adaptor with tier-specific config.
+
+        Args:
+            config: dict containing {provider, base_url, api_key, model, max_tokens}
+        """
+        self._config = config
+        self._provider = config.get("provider", "anthropic")
+
+        if self._provider == "openai":
+            from provider.api.openai_api import call_stream_openai, call_openai
+            self._call_stream = call_stream_openai
+            self._call = call_openai
+        elif self._provider == "anthropic":
+            from provider.api.anthropic_api import call_stream_anthropic, call_anthropic
+            self._call_stream = call_stream_anthropic
+            self._call = call_anthropic
         else:
             raise ValueError(f"Unknown provider: {provider}")
-
-        self._call_stream = call_stream
-        self._call = call
-        self._provider = provider
 
     def stream(self, messages, tools=None, response_format=None, **kwargs):
         messages = normalize_messages(messages)
@@ -84,10 +93,24 @@ class LLMAdaptor:
         user_msg = COMPRESS_USER.format(conversation=conversation_text[:30000])
         try:
             if self._provider == "anthropic":
-                response = self._call(messages=[{"role": "user", "content": user_msg}], max_tokens=2048)
+                response = self._call(
+                    messages=[{"role": "user", "content": user_msg}],
+                    provider=self._config.get("provider"),
+                    base_url=self._config.get("base_url"),
+                    api_key=self._config.get("api_key"),
+                    model=self._config.get("model"),
+                    max_tokens=2048,
+                )
                 return response.content[0].text
             else:
-                response = self._call(messages=[{"role": "user", "content": user_msg}])
+                response = self._call(
+                    messages=[{"role": "user", "content": user_msg}],
+                    provider=self._config.get("provider"),
+                    base_url=self._config.get("base_url"),
+                    api_key=self._config.get("api_key"),
+                    model=self._config.get("model"),
+                    max_tokens=2048,
+                )
                 return response.content
         except Exception as e:
             print(f"  [上下文压缩] 压缩失败: {e}")
@@ -191,7 +214,16 @@ class LLMAdaptor:
         in_thinking = False
         in_content = False
 
-        for chunk in self._call_stream(messages, **params, **kwargs):
+        for chunk in self._call_stream(
+            messages,
+            provider=self._config.get("provider"),
+            base_url=self._config.get("base_url"),
+            api_key=self._config.get("api_key"),
+            model=self._config.get("model"),
+            max_tokens=self._config.get("max_tokens"),
+            **params,
+            **kwargs,
+        ):
             choice = chunk.choices[0]
             delta = choice.delta
 
@@ -247,7 +279,16 @@ class LLMAdaptor:
         stop_reason = None
         usage = None
 
-        for event in self._call_stream(messages, **params, **kwargs):
+        for event in self._call_stream(
+            messages,
+            provider=self._config.get("provider"),
+            base_url=self._config.get("base_url"),
+            api_key=self._config.get("api_key"),
+            model=self._config.get("model"),
+            max_tokens=self._config.get("max_tokens"),
+            **params,
+            **kwargs,
+        ):
             if event.type == "message_start":
                 yield Event(EventType.MESSAGE_START)
 

@@ -60,10 +60,18 @@ def call_llm_sync(adaptor, messages, timeout=DEFAULT_TIMEOUT, response_format=No
     return content
 
 
-def call_llm(provider: str, system: str, user: str, model: str | None = None, timeout: int = DEFAULT_TIMEOUT, response_format=None) -> str:
-    """简单的同步 LLM 调用封装。"""
+def call_llm(config: dict, system: str, user: str, timeout: int = DEFAULT_TIMEOUT, response_format=None) -> str:
+    """简单的同步 LLM 调用封装。
+
+    Args:
+        config: dict containing {provider, base_url, api_key, model, max_tokens}
+        system: system prompt
+        user: user message
+        timeout: timeout in seconds
+        response_format: optional response format dict
+    """
     from provider.adaptor import LLMAdaptor
-    adaptor = LLMAdaptor(provider=provider)
+    adaptor = LLMAdaptor(config)
     messages = [SystemMessage(system), UserMessage(user)]
     try:
         return call_llm_sync(adaptor, messages, timeout=timeout, response_format=response_format)
