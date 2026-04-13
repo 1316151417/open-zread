@@ -15,7 +15,7 @@
   },
   "max": {
     "provider": "openai",
-    "base_url": "https://api.deepseek.com",
+    "base_url": "https://api.deepseek.com/anthropic",
     "api_key": "${DEEPSEEK_API_KEY}",
     "model": "deepseek-reasoner",
     "max_tokens": 16384

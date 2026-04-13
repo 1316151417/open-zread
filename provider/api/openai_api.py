@@ -25,7 +25,7 @@ def call_openai(messages, base_url=None, api_key=None, model=None, max_tokens=No
                 messages=messages,
                 max_tokens=max_tokens,
                 timeout=DEFAULT_TIMEOUT,
-                response_format=response_format or {"type": "json_object"},
+                response_format=response_format,
                 **kwargs,
             )
             return response.choices[0].message
@@ -55,7 +55,7 @@ def call_stream_openai(messages, base_url=None, api_key=None, model=None, max_to
                 max_tokens=max_tokens,
                 stream=True,
                 timeout=DEFAULT_TIMEOUT,
-                response_format=response_format or {"type": "json_object"},
+                response_format=response_format,
                 **kwargs,
             )
         except (APITimeoutError, APIConnectionError, TimeoutError) as e:
