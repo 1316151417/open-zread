@@ -95,7 +95,6 @@ class LLMAdaptor:
             if self._provider == "anthropic":
                 response = self._call(
                     messages=[{"role": "user", "content": user_msg}],
-                    provider=self._config.get("provider"),
                     base_url=self._config.get("base_url"),
                     api_key=self._config.get("api_key"),
                     model=self._config.get("model"),
@@ -105,7 +104,6 @@ class LLMAdaptor:
             else:
                 response = self._call(
                     messages=[{"role": "user", "content": user_msg}],
-                    provider=self._config.get("provider"),
                     base_url=self._config.get("base_url"),
                     api_key=self._config.get("api_key"),
                     model=self._config.get("model"),
@@ -216,7 +214,6 @@ class LLMAdaptor:
 
         for chunk in self._call_stream(
             messages,
-            provider=self._config.get("provider"),
             base_url=self._config.get("base_url"),
             api_key=self._config.get("api_key"),
             model=self._config.get("model"),
@@ -281,7 +278,6 @@ class LLMAdaptor:
 
         for event in self._call_stream(
             messages,
-            provider=self._config.get("provider"),
             base_url=self._config.get("base_url"),
             api_key=self._config.get("api_key"),
             model=self._config.get("model"),

@@ -8,7 +8,7 @@ DEFAULT_TIMEOUT = 60
 MAX_RETRIES = 1
 
 
-def call_openai(messages, provider=None, base_url=None, api_key=None, model=None, max_tokens=None, response_format=None, **kwargs):
+def call_openai(messages, base_url=None, api_key=None, model=None, max_tokens=None, response_format=None, **kwargs):
     """OpenAI-compatible synchronous call with configurable endpoint."""
     from openai import OpenAI, APITimeoutError, APIConnectionError
 
@@ -37,7 +37,7 @@ def call_openai(messages, provider=None, base_url=None, api_key=None, model=None
                 raise
 
 
-def call_stream_openai(messages, provider=None, base_url=None, api_key=None, model=None, max_tokens=None, response_format=None, **kwargs):
+def call_stream_openai(messages, base_url=None, api_key=None, model=None, max_tokens=None, response_format=None, **kwargs):
     """OpenAI-compatible streaming call with configurable endpoint."""
     from openai import OpenAI, APITimeoutError, APIConnectionError
 

@@ -8,7 +8,7 @@ DEFAULT_TIMEOUT = 60
 MAX_RETRIES = 1
 
 
-def call_anthropic(messages, provider=None, base_url=None, api_key=None, model=None, max_tokens=None, **kwargs):
+def call_anthropic(messages, base_url=None, api_key=None, model=None, max_tokens=None, **kwargs):
     """Anthropic-compatible synchronous call with configurable endpoint."""
     import anthropic
 
@@ -35,7 +35,7 @@ def call_anthropic(messages, provider=None, base_url=None, api_key=None, model=N
                 raise
 
 
-def call_stream_anthropic(messages, provider=None, base_url=None, api_key=None, model=None, max_tokens=None, **kwargs):
+def call_stream_anthropic(messages, base_url=None, api_key=None, model=None, max_tokens=None, **kwargs):
     """Anthropic-compatible streaming call with configurable endpoint."""
     import anthropic
 
