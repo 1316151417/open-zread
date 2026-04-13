@@ -72,7 +72,10 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 | `provider/deepseek_base.py` | DeepSeek API 客户端实现，两种协议的 call/call_stream |
 | `agent/react_agent.py` | ReAct 循环：消费事件、执行工具、维护多轮对话 |
 | `pipeline/__init__.py` | `run_pipeline()` 入口，6 阶段调度 |
+| `prompt/pipeline_prompts.py` | 所有提示词定义：FILE_FILTER/SCORER/SUB_AGENT/EVAL/AGGREGATOR 等 |
 | `tool/fs_tool.py` | 文件系统工具：read_file/list_directory/glob_pattern/grep_content（线程安全） |
+| `log/printer.py` | 事件格式化打印，流式输出追踪 |
+| `log/logger.py` | 调试日志，DEBUG=1 启用 |
 
 ### 关键设计
 
@@ -82,6 +85,7 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 4. **三级模型分层**：lite=过滤/pro=研究/max=汇总，平衡速度与质量
 5. **tool_use 文本过滤**：`STEP_END` 过滤 LLM 误输出的 `tool_use(...)` 文本
 6. **流式超时保护**：daemon thread + Queue + 120s per step + 60s LLM call
+7. **上下文压缩**：`COMPRESS_SYSTEM` 提示词用于多轮对话摘要，保留关键引用减少 token 消耗
 
 ### Settings Configuration (`settings.json`)
 

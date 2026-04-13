@@ -17,7 +17,7 @@
     "provider": "anthropic",
     "base_url": "https://api.deepseek.com/anthropic",
     "api_key": "${DEEPSEEK_API_KEY}",
-    "model": "deepseek-chat",
+    "model": "deepseek-reasoner",
     "max_tokens": 16384
   },
   "max_sub_agent_steps": 30,
