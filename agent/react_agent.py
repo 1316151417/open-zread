@@ -8,6 +8,8 @@ from log.logger import logger
 from provider.adaptor import LLMAdaptor
 from base.types import Event, EventType, ToolMessage, AssistantMessage
 
+from langfuse import observe
+
 MAX_STEP_CNT = 30
 
 
@@ -37,7 +39,7 @@ def _execute_tool(tool, tool_arguments: str):
         logger.debug(f"[ReAct] 工具执行失败 {tool.name}: {e}")
         return None, str(e)
 
-
+@observe(name="react_agent_stream")
 def stream(messages, tools, config: dict, max_steps=MAX_STEP_CNT):
     """ReAct stream generator: yields events for each step.
 

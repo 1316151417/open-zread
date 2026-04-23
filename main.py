@@ -1,6 +1,9 @@
 import argparse
 import os
 
+import dotenv
+dotenv.load_dotenv()
+
 from pipeline import run_pipeline
 
 
