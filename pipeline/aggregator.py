@@ -2,10 +2,10 @@
 import json
 from pathlib import Path
 
-from base.types import EventType, SystemMessage, UserMessage
+from base.types import EventType
 from agent.react_agent import stream as react_stream
 from pipeline.types import PipelineContext
-from prompt.pipeline_prompts import AGGREGATOR_SYSTEM, AGGREGATOR_USER
+from prompt.langfuse_prompt import get_compiled_messages
 from tool.fs_tool import set_project_root, read_file, list_directory, glob_pattern, grep_content
 
 
@@ -17,16 +17,12 @@ def aggregate_reports(ctx: PipelineContext, selected: list) -> None:
     file_tree = _build_file_tree(ctx.all_files)
     important_files = list({f for m in selected for f in m.files})
 
-    system = AGGREGATOR_SYSTEM.format(project_name=ctx.project_name)
-    messages = [
-        SystemMessage(system),
-        UserMessage(AGGREGATOR_USER.format(
-            project_name=ctx.project_name,
-            file_tree=file_tree,
-            important_files=json.dumps(important_files, ensure_ascii=False, indent=2),
-            module_reports=module_reports,
-        )),
-    ]
+    messages = get_compiled_messages("aggregator",
+        project_name=ctx.project_name,
+        file_tree=file_tree,
+        important_files=json.dumps(important_files, ensure_ascii=False, indent=2),
+        module_reports=module_reports,
+    )
 
     events = react_stream(messages=messages, tools=tools, config=ctx.max_config, max_steps=ctx.max_sub_agent_steps)
     ctx.final_report = _collect_report(events)

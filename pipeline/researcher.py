@@ -3,10 +3,10 @@ import json
 import os
 from pathlib import Path
 
-from base.types import EventType, SystemMessage, UserMessage
+from base.types import EventType
 from agent.react_agent import stream as react_stream
 from pipeline.types import PipelineContext, Module
-from prompt.pipeline_prompts import SUB_AGENT_SYSTEM, SUB_AGENT_USER
+from prompt.langfuse_prompt import get_compiled_messages
 from tool.fs_tool import set_project_root, read_file, list_directory, glob_pattern, grep_content
 
 
@@ -24,16 +24,12 @@ def research_one_module(ctx: PipelineContext, module: Module, tools: list, repor
 
     module_files_json = json.dumps([f for f in module.files], ensure_ascii=False, indent=2)
 
-    system = SUB_AGENT_SYSTEM.format()
-    messages = [
-        SystemMessage(system),
-        UserMessage(SUB_AGENT_USER.format(
-            project_name=ctx.project_name,
-            module_name=module.name,
-            file_tree=file_tree,
-            module_files_json=module_files_json,
-        )),
-    ]
+    messages = get_compiled_messages("sub-agent",
+        project_name=ctx.project_name,
+        module_name=module.name,
+        file_tree=file_tree,
+        module_files_json=module_files_json,
+    )
 
     events = react_stream(messages=messages, tools=tools, config=ctx.pro_config, max_steps=ctx.max_sub_agent_steps)
 

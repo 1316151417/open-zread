@@ -131,14 +131,14 @@ class LLMAdaptor:
         return compressed
 
     def _summarize_messages(self, messages: list) -> str:
-        from prompt.pipeline_prompts import COMPRESS_USER
+        from prompt.langfuse_prompt import get_compiled_messages
         conversation_text = self._format_messages_for_summary(messages)
         if not conversation_text.strip():
             return ""
 
-        user_msg = COMPRESS_USER.format(conversation=conversation_text[:30000])
         try:
-            return self.call([{"role": "user", "content": user_msg}])
+            compiled = get_compiled_messages("compress", conversation=conversation_text[:30000])
+            return self.call(compiled)
         except Exception as e:
             print(f"  [上下文压缩] 压缩失败: {e}")
             return ""

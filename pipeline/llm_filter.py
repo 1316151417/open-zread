@@ -1,10 +1,9 @@
 """Stage 2: LLM 智能过滤 - 基于项目类型判断文件重要性."""
 import json
 
-from base.types import SystemMessage, UserMessage
 from provider.adaptor import LLMAdaptor
 from pipeline.types import PipelineContext
-from prompt.pipeline_prompts import FILE_FILTER_SYSTEM, FILE_FILTER_USER
+from prompt.langfuse_prompt import get_compiled_messages
 
 
 def llm_filter_files(ctx: PipelineContext) -> None:
@@ -16,7 +15,7 @@ def llm_filter_files(ctx: PipelineContext) -> None:
     ], ensure_ascii=False, indent=2)
 
     adaptor = LLMAdaptor(ctx.lite_config)
-    messages = [SystemMessage(FILE_FILTER_SYSTEM), UserMessage(FILE_FILTER_USER.format(project_name=ctx.project_name, files_json=files_json))]
+    messages = get_compiled_messages("file-filter", project_name=ctx.project_name, files_json=files_json)
     response = adaptor.call_for_json(messages, response_format={"type": "json_object"})
 
     try:
