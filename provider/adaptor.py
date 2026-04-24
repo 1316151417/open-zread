@@ -248,6 +248,8 @@ class LLMAdaptor:
                     tool_results = []
                 if msg.get("role") == "assistant" and msg.get("tool_calls"):
                     content_blocks = []
+                    if msg.get("reasoning_content"):
+                        content_blocks.append({"type": "thinking", "thinking": msg["reasoning_content"]})
                     if msg.get("content"):
                         content_blocks.append({"type": "text", "text": msg["content"]})
                     for tc in msg["tool_calls"]:
