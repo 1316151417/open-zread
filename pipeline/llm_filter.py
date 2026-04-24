@@ -28,27 +28,3 @@ def llm_filter_files(ctx: PipelineContext) -> None:
     for f in ctx.all_files:
         if f.path in unimportant_paths:
             f.is_important = False
-
-
-if __name__ == "__main__":
-    import os
-    from pipeline.scanner import scan_project
-    from settings import get_lite_config
-
-    project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch", lite_config=get_lite_config())
-    scan_project(ctx)
-
-    important_before = [f for f in ctx.all_files if f.is_important]
-    print(f"过滤前：{len(important_before)} 个重要文件\n")
-
-    llm_filter_files(ctx)
-
-    important_after = [f for f in ctx.all_files if f.is_important]
-    newly_unimportant = set(f.path for f in important_before) - set(f.path for f in important_after)
-
-    print(f"过滤后：{len(important_after)} 个重要文件\n")
-    if newly_unimportant:
-        print(f"新增不重要的文件：")
-        for path in sorted(newly_unimportant):
-            print(f"  - {path}")

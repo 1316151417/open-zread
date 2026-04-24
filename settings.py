@@ -79,63 +79,23 @@ def load_settings(path: str | None = None) -> dict:
         with open(path, "r", encoding="utf-8") as f:
             user_settings = json.load(f)
         merged = {**_DEFAULTS, **user_settings}
-        # Expand env vars in tier configs
         for tier in ["lite", "pro", "max"]:
             if tier in merged and tier in _DEFAULTS:
                 merged[tier] = {**_DEFAULTS[tier], **merged.get(tier, {})}
         _settings = _expand_env_vars(merged)
-        for tier in ["lite", "pro", "max"]:
-            if tier in _settings:
-                _normalize_base_url(_settings[tier])
     else:
         _settings = _expand_env_vars(dict(_DEFAULTS))
-        for tier in ["lite", "pro", "max"]:
-            if tier in _settings:
-                _normalize_base_url(_settings[tier])
+
+    for tier in ["lite", "pro", "max"]:
+        if tier in _settings:
+            _normalize_base_url(_settings[tier])
 
     return _settings
 
 
-def get_settings() -> dict:
-    return load_settings()
-
-
-def get_provider() -> str:
-    """Legacy function - returns lite provider for backward compatibility."""
-    return get_lite_config()["provider"]
-
-
-def get_model() -> str:
-    """Legacy function - returns lite model for backward compatibility."""
-    return get_lite_model()
-
-
-def get_lite_config() -> dict:
-    return load_settings()["lite"]
-
-
-def get_pro_config() -> dict:
-    return load_settings()["pro"]
-
-
-def get_max_config() -> dict:
-    return load_settings()["max"]
-
-
-def get_lite_model() -> str:
-    return get_lite_config()["model"]
-
-
-def get_pro_model() -> str:
-    return get_pro_config()["model"]
-
-
-def get_max_model() -> str:
-    return get_max_config()["model"]
-
-
-def get_max_tokens() -> int:
-    return load_settings()["max_tokens"]
+def get_config(tier: str) -> dict:
+    """获取指定层级的配置。"""
+    return load_settings()[tier]
 
 
 def reset_settings() -> None:

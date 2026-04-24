@@ -23,24 +23,3 @@ def score_and_rank_modules(ctx: PipelineContext) -> None:
         m.score = float(scores.get(m.name, 0))
 
     ctx.modules.sort(key=lambda m: m.score, reverse=True)
-
-
-if __name__ == "__main__":
-    import os
-    from pipeline.decomposer import decompose_into_modules
-    from pipeline.llm_filter import llm_filter_files
-    from pipeline.scanner import scan_project
-    from settings import get_lite_config
-
-    project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch", lite_config=get_lite_config())
-    scan_project(ctx)
-    llm_filter_files(ctx)
-    decompose_into_modules(ctx)
-
-    print(f"打分前：{len(ctx.modules)} 个模块\n")
-    score_and_rank_modules(ctx)
-
-    print(f"打分后（倒序）：")
-    for m in ctx.modules:
-        print(f"  {m.score:5.1f}  {m.name}")

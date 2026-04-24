@@ -4,7 +4,7 @@ from prompt.test_system_prompt import SYSTEM_PROMPT
 from tool.test_tool import get_weather, get_temperature
 from agent import react_agent
 from log.printer import print_event
-from settings import get_lite_config
+from settings import get_config
 
 messages = [
     SystemMessage(SYSTEM_PROMPT),
@@ -13,13 +13,13 @@ messages = [
 tools = [get_weather]
 
 def adaptor_test():
-    config = get_lite_config()
+    config = get_config("lite")
     adaptor = LLMAdaptor(config)
     for event in adaptor.stream(messages=messages, tools=tools):
         print_event(event)
 
 def react_test():
-    config = get_lite_config()
+    config = get_config("lite")
     for event in react_agent.stream(messages=messages, tools=tools, config=config):
         print_event(event)
 

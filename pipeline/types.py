@@ -38,23 +38,3 @@ class PipelineContext:
 
     # Stage 5: aggregator output
     final_report: str = ""
-
-    @property
-    def provider(self) -> str:
-        """Legacy property for backward compatibility."""
-        return self.lite_config.get("provider", "anthropic")
-
-    @property
-    def lite_model(self) -> str:
-        """Legacy property for backward compatibility."""
-        return self.lite_config.get("model", "deepseek-chat")
-
-    @property
-    def pro_model(self) -> str:
-        """Legacy property for backward compatibility."""
-        return self.pro_config.get("model", "deepseek-chat")
-
-    @property
-    def max_model(self) -> str:
-        """Legacy property for backward compatibility."""
-        return self.max_config.get("model", "deepseek-reasoner")

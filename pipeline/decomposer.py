@@ -32,28 +32,3 @@ def decompose_into_modules(ctx: PipelineContext) -> None:
 
     if not ctx.modules:
         raise ValueError(f"模块拆分失败：LLM 返回无效结果")
-
-
-if __name__ == "__main__":
-    import os
-    from pipeline.llm_filter import llm_filter_files
-    from pipeline.scanner import scan_project
-    from settings import get_lite_config
-
-    project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    ctx = PipelineContext(project_path=project_path, project_name="CodeDeepResearch", lite_config=get_lite_config())
-    scan_project(ctx)
-    llm_filter_files(ctx)
-
-    important_files = [f for f in ctx.all_files if f.is_important]
-    print(f"重要文件：{len(important_files)} 个\n")
-
-    decompose_into_modules(ctx)
-
-    print(f"拆分 {len(ctx.modules)} 个模块：\n")
-    for m in ctx.modules:
-        print(f"## {m.name}")
-        print(f"{m.description}")
-        for f in m.files:
-            print(f"  - {f}")
-        print()

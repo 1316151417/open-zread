@@ -1,9 +1,12 @@
 """Pipeline 主入口：6 阶段编排."""
 import os
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
-from settings import load_settings, get_lite_config, get_pro_config, get_max_config
+from langfuse import observe, propagate_attributes
+
+from settings import load_settings, get_config
 from pipeline.types import PipelineContext
 from pipeline.scanner import scan_project
 from pipeline.llm_filter import llm_filter_files
@@ -12,43 +15,11 @@ from pipeline.scorer import score_and_rank_modules
 from pipeline.researcher import prepare_research, research_one_module
 from pipeline.aggregator import aggregate_reports
 
-from langfuse import observe, propagate_attributes
-import uuid
 
-
-@observe(name="scan_project")
-def _observed_scan_project(ctx, session_id):
+def _observed(name, fn, *args, session_id, **kwargs):
+    """通用 Langfuse 观察包装。"""
     with propagate_attributes(session_id=session_id):
-        return scan_project(ctx)
-
-
-@observe(name="llm_filter_files")
-def _observed_llm_filter_files(ctx, session_id):
-    with propagate_attributes(session_id=session_id):
-        return llm_filter_files(ctx)
-
-
-@observe(name="decompose_into_modules")
-def _observed_decompose_into_modules(ctx, session_id):
-    with propagate_attributes(session_id=session_id):
-        return decompose_into_modules(ctx)
-
-
-@observe(name="score_and_rank_modules")
-def _observed_score_and_rank_modules(ctx, session_id):
-    with propagate_attributes(session_id=session_id):
-        return score_and_rank_modules(ctx)
-
-
-def _observed_research_module(ctx, module, tools, report_dir, file_tree, session_id):
-    with propagate_attributes(session_id=session_id):
-        return observe(name=f"research_module:{module.name}")(research_one_module)(ctx, module, tools, report_dir, file_tree)
-
-
-@observe(name="aggregate_reports")
-def _observed_aggregate_reports(ctx, modules, session_id):
-    with propagate_attributes(session_id=session_id):
-        return aggregate_reports(ctx, modules)
+        return observe(name=name)(fn)(*args, **kwargs)
 
 
 def run_pipeline(
@@ -62,9 +33,9 @@ def run_pipeline(
     project_path = os.path.abspath(project_path)
     project_name = os.path.basename(project_path)
 
-    lite_config = get_lite_config()
-    pro_config = get_pro_config()
-    max_config = get_max_config()
+    lite_config = get_config("lite")
+    pro_config = get_config("pro")
+    max_config = get_config("max")
     max_sub_agent_steps = settings["max_sub_agent_steps"]
     research_parallel = settings["research_parallel"]
     research_threads = settings["research_threads"]
@@ -90,25 +61,25 @@ def run_pipeline(
 
     # ====== 阶段 1: 扫描 ======
     print(f"\n{'='*60}\n阶段 1/6: 扫描项目 [{project_name}]\n{'='*60}")
-    _observed_scan_project(ctx, session_id)
+    _observed("scan_project", scan_project, ctx, session_id=session_id)
     print(f"  扫描到 {len(ctx.all_files)} 个文件")
 
     # ====== 阶段 2: LLM 过滤 ======
     print(f"\n{'='*60}\n阶段 2/6: LLM 智能过滤\n{'='*60}")
-    _observed_llm_filter_files(ctx, session_id)
+    _observed("llm_filter_files", llm_filter_files, ctx, session_id=session_id)
     important_count = sum(1 for f in ctx.all_files if f.is_important)
     print(f"  保留 {important_count} 个重要文件")
 
     # ====== 阶段 3: 模块拆分 ======
     print(f"\n{'='*60}\n阶段 3/6: 模块拆分\n{'='*60}")
-    _observed_decompose_into_modules(ctx, session_id)
+    _observed("decompose_into_modules", decompose_into_modules, ctx, session_id=session_id)
     print(f"  识别到 {len(ctx.modules)} 个模块:")
     for m in ctx.modules:
         print(f"    - {m.name}: {m.description} ({len(m.files)} 个文件)")
 
     # ====== 阶段 4: 模块打分 ======
     print(f"\n{'='*60}\n阶段 4/6: 模块重要性打分\n{'='*60}")
-    _observed_score_and_rank_modules(ctx, session_id)
+    _observed("score_and_rank_modules", score_and_rank_modules, ctx, session_id=session_id)
     print(f"  模块评分（从高到低）:")
     for m in ctx.modules:
         print(f"    - {m.name}: {m.score:.0f}分")
@@ -138,7 +109,7 @@ def run_pipeline(
 
     # ====== 阶段 6: 汇总报告 ======
     print(f"\n{'='*60}\n阶段 6/6: 汇总最终报告\n{'='*60}")
-    _observed_aggregate_reports(ctx, ctx.modules, session_id)
+    _observed("aggregate_reports", aggregate_reports, ctx, ctx.modules, session_id=session_id)
 
     final_path = os.path.join(report_dir, f"最终报告-{ctx.project_name}.md")
     with open(final_path, "w", encoding="utf-8") as f:
@@ -149,3 +120,8 @@ def run_pipeline(
     print(f"报告目录: {report_dir}")
     print(f"{'='*60}")
     return ctx.final_report
+
+
+def _observed_research_module(ctx, module, tools, report_dir, file_tree, session_id):
+    with propagate_attributes(session_id=session_id):
+        return observe(name=f"research_module:{module.name}")(research_one_module)(ctx, module, tools, report_dir, file_tree)
