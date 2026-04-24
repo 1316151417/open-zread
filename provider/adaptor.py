@@ -70,6 +70,8 @@ class LLMAdaptor:
             else:
                 params["tools"] = tools
 
+        self._inject_thinking_params(params)
+
         if self._provider == "openai":
             yield from self._stream_openai(messages, params, **kwargs)
         else:
@@ -91,6 +93,8 @@ class LLMAdaptor:
         if response_format is not None and self._provider == "openai":
             params["response_format"] = response_format
 
+        self._inject_thinking_params(params)
+
         response = self._call(messages, **params)
 
         if self._provider == "anthropic":
@@ -102,6 +106,26 @@ class LLMAdaptor:
         """同步调用，返回提取后的 JSON 文本。"""
         content = self.call(messages, response_format=response_format)
         return _extract_json(content)
+
+    def _inject_thinking_params(self, params):
+        """从 config 提取思考模式参数，注入到 API 调用 params 中。"""
+        thinking = self._config.get("thinking")
+        reasoning_effort = self._config.get("reasoning_effort")
+
+        if thinking is None and not reasoning_effort:
+            return
+
+        if self._provider == "openai":
+            if reasoning_effort:
+                params["reasoning_effort"] = reasoning_effort
+            if thinking is not None:
+                params.setdefault("extra_body", {})["thinking"] = {"type": "enabled" if thinking else "disabled"}
+        elif self._provider == "anthropic":
+            extra_body = params.setdefault("extra_body", {})
+            if thinking is not None:
+                extra_body["thinking"] = {"type": "enabled" if thinking else "disabled"}
+            if reasoning_effort:
+                extra_body["output_config"] = {"effort": reasoning_effort}
 
     def _compress_if_needed(self, messages) -> list:
         total_chars = sum(len(json.dumps(m, ensure_ascii=False)) for m in messages)
