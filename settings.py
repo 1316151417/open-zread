@@ -40,6 +40,14 @@ _DEFAULTS = {
 _settings = None
 
 
+def _normalize_base_url(config: dict) -> None:
+    """如果 provider 是 anthropic，自动确保 base_url 以 /anthropic 结尾。"""
+    provider = config.get("provider", "")
+    base_url = config.get("base_url", "")
+    if provider == "anthropic" and base_url and not base_url.rstrip("/").endswith("/anthropic"):
+        config["base_url"] = base_url.rstrip("/") + "/anthropic"
+
+
 def _expand_env_vars(obj):
     """Recursively expand ${VAR} environment variables in strings."""
     if isinstance(obj, str):
@@ -76,8 +84,14 @@ def load_settings(path: str | None = None) -> dict:
             if tier in merged and tier in _DEFAULTS:
                 merged[tier] = {**_DEFAULTS[tier], **merged.get(tier, {})}
         _settings = _expand_env_vars(merged)
+        for tier in ["lite", "pro", "max"]:
+            if tier in _settings:
+                _normalize_base_url(_settings[tier])
     else:
         _settings = _expand_env_vars(dict(_DEFAULTS))
+        for tier in ["lite", "pro", "max"]:
+            if tier in _settings:
+                _normalize_base_url(_settings[tier])
 
     return _settings
 

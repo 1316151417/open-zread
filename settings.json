@@ -1,6 +1,6 @@
 {
   "lite": {
-    "provider": "openai",
+    "provider": "anthropic",
     "base_url": "https://api.deepseek.com",
     "api_key": "${DEEPSEEK_API_KEY}",
     "model": "deepseek-v4-flash",
@@ -8,7 +8,7 @@
     "thinking": false
   },
   "pro": {
-    "provider": "openai",
+    "provider": "anthropic",
     "base_url": "https://api.deepseek.com",
     "api_key": "${DEEPSEEK_API_KEY}",
     "model": "deepseek-v4-pro",
@@ -17,7 +17,7 @@
     "reasoning_effort": "high"
   },
   "max": {
-    "provider": "openai",
+    "provider": "anthropic",
     "base_url": "https://api.deepseek.com",
     "api_key": "${DEEPSEEK_API_KEY}",
     "model": "deepseek-v4-pro",
