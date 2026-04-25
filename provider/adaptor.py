@@ -98,7 +98,10 @@ class LLMAdaptor:
         response = self._call(messages, **params)
 
         if self._provider == "anthropic":
-            return response.content[0].text
+            for block in response.content:
+                if getattr(block, "type", None) == "text":
+                    return block.text
+            return ""
         else:
             return response.content
 
@@ -142,6 +145,10 @@ class LLMAdaptor:
 
         to_compress = other_msgs[:-COMPRESS_KEEP_RECENT]
         to_keep = other_msgs[-COMPRESS_KEEP_RECENT:]
+
+        # 跳过 to_keep 开头的孤立 tool 消息（对应的 tool_use 已在压缩部分）
+        while to_keep and to_keep[0].get("role") == "tool":
+            to_keep.pop(0)
         summary = self._summarize_messages(to_compress)
 
         compressed = list(system_msgs)
