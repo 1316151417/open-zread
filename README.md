@@ -1,264 +1,163 @@
-# CodeDeepResearch
+# Open Zread
 
-LLM 驱动的自动化代码深度分析引擎。输入任意代码仓库路径，输出结构化的中文项目分析报告（架构总览、模块详解、跨模块洞察、总结建议）。
+> 用 AI 把本地代码变成文档，一条命令搞定。
 
-## 核心能力
+Open Zread 是 [Zread CLI](https://github.com/ZreadAI/zread_cli) 的开源版本，通过 AI 大模型自动分析代码仓库，生成结构化的 Wiki 文档。所有数据完全本地存储，不会上传到任何服务器。
 
-- **全自动化分析**：无需人工干预，输入仓库路径即可获得完整分析报告
-- **智能文件筛选**：硬编码 + LLM 两层过滤，去除测试/文档/配置等无分析价值文件
-- **并行模块研究**：对所有识别出的模块并行深度研究，充分利用 token 并发
-- **生成-评估迭代**：子模块报告和最终报告均经过生成-评估-改进循环，确保质量
-- **三级模型分层**：lite/pro/max 三档模型按场景分配，平衡速度与质量
-- **流式事件架构**：完整的事件日志可追踪 agent 思维过程
-- **流式超时保护**：所有 LLM 调用均有超时保护，防止无限卡死
-- **上下文压缩**：自动压缩超长对话，减少 token 消耗
+与闭源版相比，Open Zread 使用纯 Python 实现，架构清晰，方便二次开发和定制。
 
-## 架构
+## 功能特性
 
-```
-输入: /path/to/project
-  │
-  ▼
-阶段 1: 扫描项目 ── 遍历文件，收集大小/扩展名/路径
-  │         排除 node_modules/.git/test/docs 等目录
-  │
-  ▼
-阶段 2: LLM 智能过滤 ── 基于项目类型判断文件重要性
-  │         排除 README/配置文件/自动生成代码
-  │
-  ▼
-阶段 3: 模块拆分 ── 按目录结构 + import 关系划分模块
-  │
-  ▼
-阶段 4: 模块打分排序 ── 核心度/依赖度/入口/领域独特性评分
-  │
-  ▼
-阶段 5: 子模块深度研究 ── 并行 ReAct agent × N 模块
-  │         每模块: 生成 → 评估 → (不通过则重试) → 最终生成
-  │
-  ▼
-阶段 6: 最终报告汇总 ── ReAct agent 整合所有模块报告
-  │         生成 → 评估 → (不通过则重试) → 最终生成
-  │
-  ▼
-输出: report/{项目名}/{时间戳}/
-  ├── 模块分析报告-{模块1}.md
-  ├── 模块分析报告-{模块2}.md
-  └── 最终报告-{项目名}.md
-```
+- **自动分析** — AI Agent 自动探索代码库，识别架构和关键模块
+- **结构化文档** — 两阶段流水线：先生成目录（TOC），再并行生成详细文档
+- **多模型支持** — 兼容 OpenAI 和 Anthropic 协议，支持 DeepSeek、OpenAI 等任意兼容模型
+- **本地运行** — 所有分析在本地完成，代码不会离开你的机器
+- **可观测性** — 内置 Langfuse 集成，支持 Prompt 管理和调用链追踪
+- **上下文压缩** — 超长对话自动压缩，避免超出模型上下文窗口
 
 ## 快速开始
 
-### 安装依赖
+### 环境要求
+
+- Python >= 3.12
+- [uv](https://docs.astral.sh/uv/) 包管理器
+
+### 安装
 
 ```bash
+git clone https://github.com/your-username/open-zread.git
+cd open-zread
 uv sync
 ```
 
 ### 配置
 
-编辑 `settings.json`：
+1. 复制环境变量文件并填入你的 API Key：
 
-```json
-{
-  "lite": {
-    "provider": "anthropic",
-    "base_url": "https://api.deepseek.com/anthropic",
-    "api_key": "${DEEPSEEK_API_KEY}",
-    "model": "deepseek-chat",
-    "max_tokens": 16384
-  },
-  "pro": {
-    "provider": "anthropic",
-    "base_url": "https://api.deepseek.com/anthropic",
-    "api_key": "${DEEPSEEK_API_KEY}",
-    "model": "deepseek-chat",
-    "max_tokens": 16384
-  },
-  "max": {
-    "provider": "anthropic",
-    "base_url": "https://api.deepseek.com/anthropic",
-    "api_key": "${DEEPSEEK_API_KEY}",
-    "model": "deepseek-reasoner",
-    "max_tokens": 16384
-  },
-  "max_sub_agent_steps": 30,
-  "research_parallel": true,
-  "research_threads": 10,
-  "debug": false
-}
+```bash
+cp .env.example .env
 ```
 
-| 配置项 | 说明 |
-|--------|------|
-| `lite` | 分类/过滤/打分用（速度快） |
-| `pro` | 子模块深度分析 + 评估用（推理能力强） |
-| `max` | 最终汇总用（最强推理） |
-| `max_sub_agent_steps` | 每个 agent 的最大步数 |
-| `research_parallel` | 是否并行研究模块 |
-| `research_threads` | 并行研究线程数 |
+编辑 `.env`：
+
+```env
+DEEPSEEK_API_KEY="your-api-key"
+# 如需 Langfuse 可观测性，填写以下配置（可选）
+LANGFUSE_SECRET_KEY=""
+LANGFUSE_PUBLIC_KEY=""
+LANGFUSE_BASE_URL=""
+```
+
+2. 根据需要修改 `settings.json`（可选，已有默认配置）：
+
+```bash
+cp settings.json.example settings.json
+```
+
+`settings.json` 支持配置三个模型层级：
+
+| 层级 | 用途 | 默认模型 |
+|------|------|----------|
+| `lite` | 轻量任务 | deepseek-v4-flash |
+| `pro` | TOC 生成 | deepseek-v4-flash (thinking) |
+| `max` | 内容生成 | deepseek-v4-flash (thinking) |
 
 ### 运行
 
-```bash
-# 分析本地项目
-uv run python main.py /path/to/project
-
-# 指定配置文件
-uv run python main.py /path/to/project --settings /path/to/settings.json
-
-# 输出到指定文件
-uv run python main.py /path/to/project -o output.md
-```
-
-### 环境变量
+在目标项目目录下执行：
 
 ```bash
-export DEEPSEEK_API_KEY="your-api-key"
+cd /path/to/your/project
+uv run python /path/to/open-zread/main.py
 ```
 
-## 核心模块
-
-### 事件流
-
-所有交互通过统一的 `Event` 抽象，流式顺序：
+生成的文档保存在当前目录的 `.zread/wiki/` 下：
 
 ```
-MESSAGE_START → THINKING_START → THINKING_DELTA* → THINKING_END
-              → CONTENT_START  → CONTENT_DELTA*  → CONTENT_END
-              → TOOL_CALL*
-              → MESSAGE_END
-
-ReAct agent 额外事件：
-STEP_START/STEP_END（每轮迭代）
-TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
+.zread/
+└── wiki/
+    ├── current          # 指向最新版本的指针
+    └── versions/
+        └── 2026-04-26-120000/
+            ├── wiki.json   # 文档目录索引
+            ├── 1-xiang-mu-gai-shu.md
+            ├── 2-kuai-su-qi-dong.md
+            └── ...
 ```
 
-### 模块职责
+## 自定义模型
 
-| 模块 | 文件 | 职责 |
-|------|------|------|
-| 基础类型 | `base/types.py` | `EventType`、`Event`、`Message` 体系、`@tool` 装饰器 |
-| LLM 适配层 | `provider/adaptor.py` | LLMAdaptor 统一流式接口，上下文压缩 |
-| Anthropic 协议 | `provider/api/anthropic_api.py` | Anthropic 协议客户端 |
-| OpenAI 协议 | `provider/api/openai_api.py` | OpenAI 协议客户端 |
-| ReAct Agent | `agent/react_agent.py` | 工具执行、多轮对话维护、流式事件转发 |
-| 项目扫描 | `pipeline/scanner.py` | 硬编码过滤（目录/扩展名/文件名模式） |
-| LLM 过滤 | `pipeline/llm_filter.py` | 基于项目类型的 LLM 智能过滤 |
-| 模块拆分 | `pipeline/decomposer.py` | 按目录结构 + import 关系划分模块 |
-| 模块打分 | `pipeline/scorer.py` | 核心度/依赖度/入口/领域独特性评分 |
-| 深度研究 | `pipeline/researcher.py` | 并行 ReAct agent 子模块研究 + 评估迭代 |
-| 最终汇总 | `pipeline/aggregator.py` | ReAct agent 整合 + 评估迭代生成最终报告 |
-| 提示词 | `prompt/pipeline_prompts.py` | 所有 Pipeline 提示词定义 |
-| ReAct 提示词 | `prompt/react_prompts.py` | ReAct agent 专用提示词 |
-| 文件系统工具 | `tool/fs_tool.py` | read_file/list_dir/glob/grep（线程安全） |
+`settings.json` 中的每个模型层级支持以下字段：
 
-### 关键设计
-
-1. **`@tool` 装饰器**：从函数签名和 docstring 自动提取参数类型、描述，生成 `Tool` 对象
-2. **TOOL_CALL 事件的 `raw` 字段**：携带 `{"id", "name", "arguments"}`，直接构建 `AssistantMessage`
-3. **消息格式转换在 adaptor 层**：agent 层使用统一中间格式，adaptor 负责转换
-4. **三级模型分层**：lite=过滤/pro=研究/max=汇总，平衡速度与质量
-5. **tool_use 文本过滤**：`STEP_END` 过滤 LLM 误输出的 `tool_use(...)` 文本
-6. **流式超时保护**：daemon thread + Queue + 120s per step + 60s LLM call
-7. **上下文压缩**：`MAX_CONTEXT_CHARS=200000` 阈值，自动压缩超长对话
-
-## 提示词体系
-
-| 提示词 | 用途 | 关键设计 |
-|--------|------|---------|
-| `FILE_FILTER_SYSTEM` | LLM 文件过滤 | 排除/保留规则详细列举，JSON 数组输出 |
-| `DECOMPOSER_SYSTEM` | 模块拆分 | 目录结构 + import 关系分析，3-10 个模块输出 |
-| `SCORER_SYSTEM` | 模块打分 | 5 维度评分（核心度/依赖度/入口/领域/复杂度） |
-| `SUB_AGENT_SYSTEM` | 子模块深度分析 | 并发调用指令 + 批量读取/grep + 报告模板 |
-| `EVAL_AGENT_SYSTEM` | 子模块评估 | Veto 检查 + 4 维度评分，suggestions 具体可操作 |
-| `AGGREGATOR_SYSTEM` | 最终报告汇总 | 并发调用指令 + 单 Pass 生成 |
-| `AGGREGATOR_EVAL_SYSTEM` | 最终报告评估 | 完整性/深度/洞察力/实用性 Veto 检查 |
-| `COMPRESS_USER` | 上下文压缩 | 多轮对话摘要，保留关键引用 |
-
-## 输出示例
-
-```
-============================================================
-阶段 1/6: 扫描项目 [my-project]
-============================================================
-  扫描到 1247 个文件
-
-============================================================
-阶段 2/6: LLM 智能过滤
-============================================================
-  保留 89 个重要文件
-
-============================================================
-阶段 3/6: 模块拆分
-============================================================
-  识别到 7 个模块:
-    - core-agent: ReAct 智能体循环引擎 (4 个文件)
-    - llm-provider: LLM API 多协议适配层 (3 个文件)
-    ...
-
-============================================================
-阶段 4/6: 模块重要性打分
-============================================================
-  模块评分（从高到低）:
-    - core-agent: 95分 ★
-    - llm-provider: 82分 ★
-    - workflow-orchestration: 78分 ★
-
-============================================================
-阶段 5/6: 子模块深度研究
-============================================================
-  并行模式: 10 线程, 7 个模块
-  ✓ [core-agent] 完成 (4521 字符)
-  ✓ [llm-provider] 完成 (3892 字符)
-  ...
-
-============================================================
-阶段 6/6: 汇总最终报告
-============================================================
-  汇总 agent 评估通过 (分数: 85)
-  分析完成！共 7 份模块报告 + 1 份最终报告
-  报告目录: report/my-project/202604062320
+```json
+{
+  "provider": "openai",
+  "base_url": "https://api.deepseek.com",
+  "api_key": "${DEEPSEEK_API_KEY}",
+  "model": "deepseek-v4-flash",
+  "max_tokens": 8192,
+  "thinking": true,
+  "reasoning_effort": "high"
+}
 ```
 
-## 目录结构
+- `provider`：`openai` 或 `anthropic`（决定使用哪种 API 协议）
+- `base_url`：API 地址，支持任何兼容 OpenAI/Anthropic 接口的服务
+- `api_key`：API 密钥，支持 `${ENV_VAR}` 环境变量引用
+- `thinking`：是否启用模型的思考模式
+- `reasoning_effort`：推理深度（`low` / `medium` / `high` / `max`）
+
+其他配置项：
+
+| 选项 | 说明 | 默认值 |
+|------|------|--------|
+| `max_sub_agent_steps` | 单个主题的最大 ReAct 步数 | 30 |
+| `research_parallel` | 是否并行生成内容 | true |
+| `research_threads` | 并行线程数 | 10 |
+| `doc_language` | 文档语言 | 中文 |
+| `target_audience` | 目标受众 | 初级开发者 |
+
+## 架构
 
 ```
-CodeDeepResearch/
-├── main.py                  # CLI 入口
-├── settings.json            # 运行时配置（三级模型 tiered config）
-├── settings.py              # 配置加载器
-├── base/
-│   └── types.py            # 核心类型定义
-├── provider/
-│   ├── __init__.py
-│   ├── adaptor.py          # LLMAdaptor 统一流式接口
-│   └── api/
-│       ├── anthropic_api.py   # Anthropic 协议实现
-│       └── openai_api.py       # OpenAI 协议实现
-├── agent/
-│   └── react_agent.py       # ReAct agent 实现
-├── pipeline/
-│   ├── __init__.py         # 导出 run_pipeline
-│   ├── run.py              # run_pipeline() 入口
-│   ├── types.py            # PipelineContext/Module/FileInfo
-│   ├── scanner.py          # 项目扫描
-│   ├── llm_filter.py       # LLM 智能过滤
-│   ├── decomposer.py       # 模块拆分
-│   ├── scorer.py           # 模块打分
-│   ├── researcher.py        # 子模块深度研究
-│   └── aggregator.py       # 最终报告汇总
-├── prompt/
-│   ├── pipeline_prompts.py  # Pipeline 提示词
-│   └── react_prompts.py     # ReAct agent 提示词
-├── tool/
-│   └── fs_tool.py          # 文件系统工具
-└── report/                 # 分析报告输出目录
+main.py → pipeline/run.py (run_pipeline)
+  ├─ Phase 1: explorer.py → ReAct Agent (pro 模型) → XML TOC → Topic[]
+  └─ Phase 2: researcher.py → ReAct Agent (max 模型) → Markdown 文档
 ```
 
-## 依赖
+```
+├── agent/            # ReAct Agent 循环实现（含上下文压缩）
+├── base/             # 核心类型：Event、Tool、Message、@tool 装饰器
+├── pipeline/         # 两阶段流水线：章节拆分 + 内容生成
+├── prompt/           # Prompt 模板与 Langfuse Prompt 管理
+├── provider/         # LLM 提供商抽象层（OpenAI / Anthropic 协议）
+├── setting/          # 配置加载与合并
+├── tool/             # Agent 可用工具：目录结构、文件读取、Shell 命令
+└── util/             # 工具函数：TOC 解析、内容提取、slug 生成
+```
 
-- Python 3.12+
-- `anthropic>=0.89.0`
-- `openai>=2.30.0`
-- `uv`（包管理）
+### 与闭源版的区别
+
+| 特性 | Open Zread | Zread CLI |
+|------|-----------|-----------|
+| 语言 | Python | Rust |
+| 安装方式 | `uv sync` | Homebrew / npm / winget |
+| 模型 | 自备 API Key | 内置提供商 + 自定义 |
+| 内置阅读器 | 无 | `zread browse` |
+| 命令行交互 | 无 | 完整 CLI（login / config / generate） |
+| Prompt 管理 | Langfuse | 内置 |
+| 可扩展性 | 源码完全开放 | 闭源 |
+
+## 开发
+
+```bash
+# 安装依赖
+uv sync
+
+# 同步 Prompt 到 Langfuse（需要配置 Langfuse 环境变量）
+uv run python -m prompt.langfuse_prompt_init
+```
+
+## License
+
+MIT
