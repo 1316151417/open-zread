@@ -4,7 +4,6 @@ import re
 from pypinyin import lazy_pinyin
 
 from base.types import EventType
-from pipeline.types import Topic
 
 
 def collect_report(events) -> str:
@@ -41,8 +40,9 @@ def collect_stream_text(events) -> str:
 # TOC 解析
 # ---------------------------------------------------------------------------
 
-def parse_toc_xml(xml_text: str) -> list[Topic]:
+def parse_toc_xml(xml_text: str) -> list:
     """解析 XML TOC 输出，提取为 Topic 列表。"""
+    from pipeline.types import Topic
     topics = []
     index = 0
 
@@ -112,7 +112,7 @@ def slugify(name: str, index: int) -> str:
 # 导航上下文
 # ---------------------------------------------------------------------------
 
-def build_toc_navigation(topics: list[Topic], current: Topic) -> str:
+def build_toc_navigation(topics: list, current) -> str:
     """构建 step2 的导航上下文，标记 [你当前在此处]。"""
     # 按 section 分组
     sections = {}

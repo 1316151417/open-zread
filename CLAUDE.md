@@ -73,7 +73,7 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 | `pipeline/types.py` | Topic/PipelineContext 数据结构 |
 | `pipeline/explorer.py` | Step 1：章节拆分，生成 XML TOC |
 | `pipeline/researcher.py` | Step 2：内容生成，每个主题独立 agent |
-| `pipeline/utils.py` | TOC 解析、导航上下文、报告拼接 |
+| `util/utils.py` | TOC 解析、导航上下文、报告拼接 |
 | `prompt/pipeline_prompts.py` | STEP1/STEP2 提示词（照搬 zread 设计） |
 | `prompt/react_prompts.py` | ReAct agent 上下文压缩提示词 |
 | `tool/fs_tool.py` | 3 个工具：get_dir_structure/view_file_in_detail/run_bash |

@@ -4,7 +4,7 @@ import platform
 
 from provider.adaptor import LLMAdaptor
 from pipeline.types import PipelineContext, Topic
-from pipeline.utils import build_toc_navigation, extract_blog_content
+from util.utils import build_toc_navigation, extract_blog_content
 from prompt.langfuse_prompt import get_compiled_messages
 from tool.fs_tool import set_project_root, get_dir_structure, view_file_in_detail, run_bash
 

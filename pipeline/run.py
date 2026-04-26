@@ -7,7 +7,7 @@ from datetime import datetime
 
 from langfuse import observe, propagate_attributes
 
-from settings import load_settings, get_config
+from setting.settings import load_settings, get_config
 from pipeline.types import PipelineContext
 from pipeline.explorer import generate_toc
 from pipeline.researcher import generate_topic_content

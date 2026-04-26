@@ -30,12 +30,12 @@ class LLMAdaptor:
 
     def react_for_text(self, messages, tools, max_steps=30):
         """ReAct 循环，收集最终文本内容返回。"""
-        from pipeline.utils import collect_report
+        from util.utils import collect_report
         return collect_report(self.stream_react(messages, tools, max_steps))
 
     def react_for_json(self, messages, tools, max_steps=30):
         """ReAct 循环，收集内容并提取 JSON 返回。"""
-        from pipeline.utils import extract_json
+        from util.utils import extract_json
         return extract_json(self.react_for_text(messages, tools, max_steps))
 
     def _build_params(self, tools, response_format):

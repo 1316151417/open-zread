@@ -5,7 +5,7 @@ import platform
 
 from provider.adaptor import LLMAdaptor
 from pipeline.types import PipelineContext
-from pipeline.utils import parse_toc_xml
+from util.utils import parse_toc_xml
 from prompt.langfuse_prompt import get_compiled_messages
 from tool.fs_tool import set_project_root, get_dir_structure, view_file_in_detail, run_bash
 
