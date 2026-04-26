@@ -152,8 +152,6 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 | 提示词 | `prompt/pipeline_prompts.py` | 所有 Pipeline 提示词定义 |
 | ReAct 提示词 | `prompt/react_prompts.py` | ReAct agent 专用提示词 |
 | 文件系统工具 | `tool/fs_tool.py` | read_file/list_dir/glob/grep（线程安全） |
-| 事件打印 | `log/printer.py` | 事件格式化打印，流式输出追踪 |
-| 调试日志 | `log/logger.py` | DEBUG=1 启用调试日志 |
 
 ### 关键设计
 
@@ -255,10 +253,6 @@ CodeDeepResearch/
 │   └── react_prompts.py     # ReAct agent 提示词
 ├── tool/
 │   └── fs_tool.py          # 文件系统工具
-├── log/
-│   ├── __init__.py
-│   ├── printer.py          # 事件格式化打印
-│   └── logger.py           # 调试日志
 └── report/                 # 分析报告输出目录
 ```
 

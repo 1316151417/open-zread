@@ -78,8 +78,6 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 | `prompt/pipeline_prompts.py` | STEP1/STEP2 提示词（照搬 zread 设计） |
 | `prompt/react_prompts.py` | ReAct agent 上下文压缩提示词 |
 | `tool/fs_tool.py` | 3 个工具：get_dir_structure/view_file_in_detail/run_bash |
-| `log/printer.py` | 事件格式化打印，流式输出追踪 |
-| `log/logger.py` | 调试日志，DEBUG=1 启用 |
 
 ### 3 个工具
 

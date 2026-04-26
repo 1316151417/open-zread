@@ -5,7 +5,6 @@ import json
 
 from dataclasses import dataclass, field
 
-from log.logger import logger
 from provider.adaptor import LLMAdaptor
 from base.types import Event, EventType, ToolMessage, AssistantMessage, normalize_messages
 
@@ -179,15 +178,12 @@ def stream(messages, tools, config: dict, max_steps=MAX_STEP_CNT):
                 if tool is None:
                     raise RuntimeError(f"Tool '{event.tool_name}' not found")
 
-                logger.debug(f"[ReAct] 调用工具: {event.tool_name}({(event.tool_arguments or '')[:80]}...)")
                 try:
                     result = tool(**_parse_arguments(event.tool_arguments))
                     error = None
-                    logger.debug(f"[ReAct] 工具结果: {str(result)[:100]}...")
                 except Exception as e:
                     result = None
                     error = str(e)
-                    logger.debug(f"[ReAct] 工具执行失败 {tool.name}: {e}")
 
                 step_state.tool_results[event.tool_id] = {"result": result, "error": error}
                 yield Event(

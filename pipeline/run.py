@@ -7,8 +7,10 @@ from langfuse import observe, propagate_attributes
 
 from settings import load_settings, get_config
 from pipeline.types import PipelineContext
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from pipeline.explorer import generate_toc
-from pipeline.researcher import generate_content
+from pipeline.researcher import generate_topic_content
 from pipeline.utils import assemble_final_report
 
 
@@ -71,13 +73,32 @@ def run_pipeline(
 
     # ====== 阶段 2: 内容生成 ======
     print(f"\n{'='*60}\n阶段 2/2: 内容生成\n{'='*60}")
-    ctx = _observed("generate_content", generate_content, ctx, session_id=session_id)
 
-    # 写入各主题文件
-    for topic in ctx.topics:
-        path = os.path.join(report_dir, f"{topic.slug}.md")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(topic.content)
+    def _process_topic(topic):
+        """处理单个 topic: observe + 生成 + 即时写文件。"""
+        try:
+            topic.content = _observed(
+                f"generate_content: {topic.name}",
+                generate_topic_content, ctx, topic,
+                session_id=session_id,
+            )
+            path = os.path.join(report_dir, f"{topic.slug}.md")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(topic.content)
+            print(f"  ✓ 主题完成: {topic.name}")
+        except Exception as e:
+            print(f"  ✗ 主题失败: {topic.name} - {e}")
+
+    if research_parallel:
+        print(f"  并行模式: {research_threads} 线程, {len(ctx.topics)} 个主题")
+        with ThreadPoolExecutor(max_workers=research_threads) as executor:
+            futures = {executor.submit(_process_topic, t): t for t in ctx.topics}
+            for future in as_completed(futures):
+                future.result()
+    else:
+        print(f"  串行模式: {len(ctx.topics)} 个主题")
+        for topic in ctx.topics:
+            _process_topic(topic)
 
     # 拼接最终报告
     ctx.final_report = assemble_final_report(ctx.topics)
