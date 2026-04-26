@@ -45,8 +45,7 @@ def convert_messages(messages):
             })
         elif msg.get("role") == "assistant" and msg.get("tool_calls"):
             assistant_msg = {"role": "assistant"}
-            if msg.get("reasoning_content"):
-                assistant_msg["reasoning_content"] = msg["reasoning_content"]
+            assistant_msg["reasoning_content"] = msg.get("reasoning_content", "")
             if msg.get("content"):
                 assistant_msg["content"] = msg["content"]
             assistant_msg["tool_calls"] = [
