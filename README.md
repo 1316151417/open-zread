@@ -4,7 +4,9 @@
 
 Open Zread 是 [Zread CLI](https://github.com/ZreadAI/zread_cli) 的开源版本，通过 AI 大模型自动分析代码仓库，生成结构化的 Wiki 文档。所有数据完全本地存储，不会上传到任何服务器。
 
-与闭源版相比，Open Zread 使用纯 Python 实现，架构清晰，方便二次开发和定制。
+> **定位**：本项目主要用于 **学习 Agent 开发**，代码架构清晰，涵盖 ReAct 循环、工具调用、上下文压缩、Prompt 管理等核心模式，适合作为 Agent 开发的入门参考。
+
+与闭源版相比，Open Zread 使用纯 Python 实现，架构清晰，方便二次开发和定制。默认集成 [Langfuse](https://github.com/langfuse/langfuse) 进行调用链追踪和 Prompt 管理，方便观察 Agent 的每一步决策过程。
 
 ## 功能特性
 
@@ -12,7 +14,7 @@ Open Zread 是 [Zread CLI](https://github.com/ZreadAI/zread_cli) 的开源版本
 - **结构化文档** — 两阶段流水线：先生成目录（TOC），再并行生成详细文档
 - **多模型支持** — 兼容 OpenAI 和 Anthropic 协议，支持 DeepSeek、OpenAI 等任意兼容模型
 - **本地运行** — 所有分析在本地完成，代码不会离开你的机器
-- **可观测性** — 内置 Langfuse 集成，支持 Prompt 管理和调用链追踪
+- **可观测性** — 默认集成 [Langfuse](https://github.com/langfuse/langfuse)，支持 Prompt 管理和调用链追踪，可观察 Agent 每一步的决策过程
 - **上下文压缩** — 超长对话自动压缩，避免超出模型上下文窗口
 
 ## 快速开始
@@ -42,13 +44,25 @@ cp .env.example .env
 
 ```env
 DEEPSEEK_API_KEY="your-api-key"
-# 如需 Langfuse 可观测性，填写以下配置（可选）
 LANGFUSE_SECRET_KEY=""
 LANGFUSE_PUBLIC_KEY=""
 LANGFUSE_BASE_URL=""
 ```
 
-2. 根据需要修改 `settings.json`（可选，已有默认配置）：
+2. 启动 Langfuse（用于监控 Agent 调用链和 Prompt 管理）：
+
+```bash
+# 克隆 Langfuse 仓库
+git clone https://github.com/langfuse/langfuse.git
+
+# 启动 Langfuse 服务（需要 Docker）
+cd langfuse
+docker compose up
+```
+
+Langfuse 默认运行在 `http://localhost:3000`，首次访问时创建账号后即可获得 `SECRET_KEY` 和 `PUBLIC_KEY`，填入 `.env` 即可。
+
+3. 根据需要修改 `settings.json`（可选，已有默认配置）：
 
 ```bash
 cp settings.json.example settings.json
