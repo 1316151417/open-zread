@@ -5,6 +5,8 @@
 Open Zread 是 [Zread CLI](https://github.com/ZreadAI/zread_cli) 的开源版本，通过 AI 大模型自动分析代码仓库，生成结构化的 Wiki 文档。所有数据完全本地存储，不会上传到任何服务器。
 
 > **定位**：本项目主要用于 **学习 Agent 开发**，代码架构清晰，涵盖 ReAct 循环、工具调用、上下文压缩、Prompt 管理等核心模式，适合作为 Agent 开发的入门参考。
+>
+> 本项目为个人学习用途，重点关注 Agent 核心能力的实现。CLI 交互、Web 预览等外围功能请直接使用 [Zread CLI](https://github.com/ZreadAI/zread_cli)。
 
 与闭源版相比，Open Zread 使用纯 Python 实现，架构清晰，方便二次开发和定制。默认集成 [Langfuse](https://github.com/langfuse/langfuse) 进行调用链追踪和 Prompt 管理，方便观察 Agent 的每一步决策过程。
 
@@ -89,6 +91,14 @@ cp settings.json.example settings.json
 ```bash
 cd /path/to/your/project
 uv run python /path/to/open-zread/main.py
+```
+
+### 预览报告
+
+生成完毕后，使用 [Zread CLI](https://github.com/ZreadAI/zread_cli) 预览文档：
+
+```bash
+zread browse
 ```
 
 生成的文档保存在当前目录的 `.zread/wiki/` 下：

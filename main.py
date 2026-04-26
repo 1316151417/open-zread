@@ -13,6 +13,8 @@ def main():
         return 1
 
     run_pipeline(settings_path=None)
+    print("\n文档生成完毕！使用以下命令预览报告：")
+    print("  zread browse")
     return 0
 
 
