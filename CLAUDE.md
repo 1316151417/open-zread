@@ -32,7 +32,6 @@ uv add <package>
 
 ```bash
 export DEEPSEEK_API_KEY="your-api-key"
-export DEBUG=1  # 启用调试日志输出
 ```
 
 ## Architecture
@@ -90,7 +89,7 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
 1. **TOOL_CALL 事件的 `raw` 字段**：携带 `{"id", "name", "arguments"}`，直接构建 `AssistantMessage`
 2. **`@tool` 装饰器**：从函数签名/docstring 自动提取参数，生成 `Tool` 对象
 3. **消息格式转换在 adaptor 层**：agent 层使用统一中间格式
-4. **三级模型分层**：lite=过滤/pro=研究+生成/max=最强，平衡速度与质量
+4. **三级模型分层**：lite=过滤/pro=章节拆分/max=内容生成，平衡速度与质量
 5. **上下文压缩**：`MAX_CONTEXT_CHARS=200000` 阈值，自动压缩超长对话保留关键引用
 6. **导航上下文**：Step 2 每个 agent 获得完整 TOC + 当前位置标记，约束内容边界
 7. **并行内容生成**：ThreadPoolExecutor 并行生成各主题文档
@@ -108,16 +107,15 @@ TOOL_CALL_SUCCESS/TOOL_CALL_FAILED（工具执行结果）
   "research_parallel": true,
   "research_threads": 10,
   "doc_language": "中文",
-  "target_audience": "初级开发者",
-  "debug": false
+  "target_audience": "初级开发者"
 }
 ```
 
 | 配置项 | 说明 |
 |--------|------|
 | `lite` | 备用（速度快） |
-| `pro` | 章节拆分 + 内容生成（主要推理） |
-| `max` | 备用（最强推理） |
+| `pro` | 章节拆分（主要推理） |
+| `max` | 内容生成（最强推理） |
 | `max_sub_agent_steps` | 每个 agent 的最大步数 |
 | `research_parallel` | 是否并行生成内容 |
 | `research_threads` | 并行线程数 |

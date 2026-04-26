@@ -27,6 +27,5 @@
   },
   "max_sub_agent_steps": 30,
   "research_parallel": true,
-  "research_threads": 10,
-  "debug": false
+  "research_threads": 10
 }

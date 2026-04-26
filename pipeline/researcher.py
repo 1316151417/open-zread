@@ -12,7 +12,7 @@ from tool.fs_tool import set_project_root, get_dir_structure, view_file_in_detai
 def generate_topic_content(ctx: PipelineContext, topic: Topic) -> str:
     """为单个主题生成内容，返回 markdown 文本。"""
     set_project_root(ctx.project_path)
-    adaptor = LLMAdaptor(ctx.pro_config)
+    adaptor = LLMAdaptor(ctx.max_config)
     tools = [get_dir_structure, view_file_in_detail, run_bash]
     os_name = platform.system().lower()
 
