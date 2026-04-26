@@ -62,7 +62,13 @@ docker compose up
 
 Langfuse 默认运行在 `http://localhost:3000`，首次访问时创建账号后即可获得 `SECRET_KEY` 和 `PUBLIC_KEY`，填入 `.env` 即可。
 
-3. 根据需要修改 `settings.json`（可选，已有默认配置）：
+3. 初始化 Prompt 模板到 Langfuse：
+
+```bash
+uv run python -m prompt.langfuse_prompt_init
+```
+
+4. 根据需要修改 `settings.json`（可选，已有默认配置）：
 
 ```bash
 cp settings.json.example settings.json
