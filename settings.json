@@ -25,8 +25,8 @@
     "thinking": true,
     "reasoning_effort": "high"
   },
-  "max_sub_agent_steps": 30,
-  "research_parallel": false,
+  "max_sub_agent_steps": 50,
+  "research_parallel": true,
   "research_threads": 10,
   "debug": false
 }

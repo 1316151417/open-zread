@@ -19,35 +19,27 @@ def _observed(name, fn, *args, session_id, **kwargs):
         return observe(name=name)(fn)(*args, **kwargs)
 
 
-def _build_wiki(topics) -> dict:
-    """构建 wiki.json 结构化数据。"""
-    sections = {}
+def _build_wiki(version_id: str, topics, language: str = "zh") -> dict:
+    """构建 wiki.json，完全对齐 zread 格式。"""
+    pages = []
     for t in topics:
-        sections.setdefault(t.section_name, []).append(t)
+        page = {
+            "slug": t.slug,
+            "title": t.name,
+            "file": f"{t.slug}.md",
+            "section": t.section_name,
+            "level": t.level,
+        }
+        if t.group_name:
+            page["group"] = t.group_name
+        pages.append(page)
 
-    result = []
-    for sec_name, sec_topics in sections.items():
-        groups = {}
-        section_entry = {"section": sec_name, "groups": []}
-
-        for t in sec_topics:
-            entry = {
-                "name": t.name,
-                "slug": t.slug,
-                "level": t.level,
-                "file": f"{t.slug}.md",
-            }
-            if t.group_name:
-                groups.setdefault(t.group_name, []).append(entry)
-            else:
-                section_entry["groups"].append({"topics": [entry]})
-
-        for group_name, group_topics in groups.items():
-            section_entry["groups"].append({"name": group_name, "topics": group_topics})
-
-        result.append(section_entry)
-
-    return {"sections": result}
+    return {
+        "id": version_id,
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "language": language,
+        "pages": pages,
+    }
 
 
 def run_pipeline(settings_path: str | None = None) -> None:
@@ -67,16 +59,16 @@ def run_pipeline(settings_path: str | None = None) -> None:
 
     print(f"模型配置: lite={lite_config['model']}, pro={pro_config['model']}, max={max_config['model']}")
 
-    # .zread 目录结构
-    zread_dir = os.path.join(project_path, ".zread")
-    versions_dir = os.path.join(zread_dir, "versions")
+    # .zread/wiki 目录结构（对齐 zread）
+    wiki_dir = os.path.join(project_path, ".zread", "wiki")
+    versions_dir = os.path.join(wiki_dir, "versions")
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
     version_dir = os.path.join(versions_dir, timestamp)
     os.makedirs(version_dir, exist_ok=True)
     print(f"报告输出目录: {version_dir}")
 
     # 更新 current 指针
-    current_path = os.path.join(zread_dir, "current")
+    current_path = os.path.join(wiki_dir, "current")
     with open(current_path, "w", encoding="utf-8") as f:
         f.write(f"versions/{timestamp}")
 
@@ -100,10 +92,15 @@ def run_pipeline(settings_path: str | None = None) -> None:
         group = f" ({topic.group_name})" if topic.group_name else ""
         print(f"    [{topic.section_name}] {topic.name} [{topic.level}]{group}")
 
-    # 保存 TOC
-    toc_path = os.path.join(version_dir, "toc.xml")
-    with open(toc_path, "w", encoding="utf-8") as f:
-        f.write(ctx.toc_xml)
+    # 保存 wiki.json（在内容生成前就写入，方便前端预览）
+    wiki = _build_wiki(
+        version_id=timestamp,
+        topics=ctx.topics,
+        language="zh" if ctx.settings.get("doc_language", "中文") == "中文" else "en",
+    )
+    wiki_path = os.path.join(version_dir, "wiki.json")
+    with open(wiki_path, "w", encoding="utf-8") as f:
+        json.dump(wiki, f, ensure_ascii=False, indent=2)
 
     # ====== 阶段 2: 内容生成 ======
     print(f"\n{'='*60}\n阶段 2/2: 内容生成\n{'='*60}")
@@ -133,12 +130,6 @@ def run_pipeline(settings_path: str | None = None) -> None:
         print(f"  串行模式: {len(ctx.topics)} 个主题")
         for topic in ctx.topics:
             _process_topic(topic)
-
-    # 保存 wiki.json
-    wiki = _build_wiki(ctx.topics)
-    wiki_path = os.path.join(version_dir, "wiki.json")
-    with open(wiki_path, "w", encoding="utf-8") as f:
-        json.dump(wiki, f, ensure_ascii=False, indent=2)
 
     print(f"\n{'='*60}")
     print(f"分析完成！共 {len(ctx.topics)} 个主题报告")

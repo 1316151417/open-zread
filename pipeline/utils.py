@@ -1,6 +1,7 @@
 """Pipeline 共用工具函数."""
 import re
-import unicodedata
+
+from pypinyin import lazy_pinyin
 
 from base.types import EventType
 from pipeline.types import Topic
@@ -97,25 +98,14 @@ def _extract_section_name(body: str) -> str:
 
 
 def slugify(name: str, index: int) -> str:
-    """将中英文标题转为 URL slug。格式：{index}-{slug}"""
-    # 移除常见标点
-    name = re.sub(r'[^\w\s-]', '', name)
-    name = re.sub(r'[\s_]+', '-', name)
-    # 对非 ASCII 字符做简化处理
-    slug_parts = []
-    for ch in name:
-        if ch.isascii() and (ch.isalnum() or ch == '-'):
-            slug_parts.append(ch.lower())
-        elif not ch.isascii():
-            # 非拉丁字符用音译简化
-            normalized = unicodedata.normalize('NFKD', ch)
-            ascii_chars = [c for c in normalized if c.isascii() and c.isalnum()]
-            if ascii_chars:
-                slug_parts.extend(ascii_chars)
-            # 如果没有 ascii 等价物，跳过
-    slug = ''.join(slug_parts).strip('-')
-    slug = re.sub(r'-+', '-', slug)  # 合并连续的 -
-    return f"{index}-{slug}" if slug else str(index)
+    """将中英文标题转为 URL slug。格式：{index}-{pinyin-slug}"""
+    # 中文转拼音，英文保留
+    parts = lazy_pinyin(name)
+    joined = '-'.join(parts).lower()
+    # 只保留字母、数字、连字符
+    joined = re.sub(r'[^a-z0-9-]', '-', joined)
+    joined = re.sub(r'-+', '-', joined).strip('-')
+    return f"{index}-{joined}" if joined else str(index)
 
 
 # ---------------------------------------------------------------------------
