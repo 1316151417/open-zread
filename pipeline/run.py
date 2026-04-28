@@ -5,7 +5,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
-from langfuse import observe, propagate_attributes
+from util.langfuse import observe, propagate_attributes
 
 from setting.settings import load_settings, get_config
 from pipeline.types import PipelineContext
@@ -13,9 +13,9 @@ from pipeline.explorer import generate_toc
 from pipeline.researcher import generate_topic_content
 
 
-def _observed(name, fn, *args, session_id, **kwargs):
+def _observed(name, fn, *args, session_id, metadata=None, **kwargs):
     """通用 Langfuse 观察包装。"""
-    with propagate_attributes(session_id=session_id):
+    with propagate_attributes(session_id=session_id, metadata=metadata):
         return observe(name=name)(fn)(*args, **kwargs)
 
 
@@ -109,9 +109,10 @@ def run_pipeline(settings_path: str | None = None) -> None:
         """处理单个 topic: observe + 生成 + 即时写文件。"""
         try:
             topic.content = _observed(
-                f"generate_content: {topic.name}",
+                "generate_content",
                 generate_topic_content, ctx, topic,
                 session_id=session_id,
+                metadata={"topic_name": topic.name},
             )
             path = os.path.join(version_dir, f"{topic.slug}.md")
             with open(path, "w", encoding="utf-8") as f:

@@ -6,13 +6,13 @@ import os
 import time
 
 from base.types import Event, EventType
+from util.langfuse import OpenAI
 
 DEFAULT_TIMEOUT = 60
 MAX_RETRIES = 1
 
 
 def _create_client(api_key=None, base_url=None):
-    from langfuse.openai import OpenAI
     return OpenAI(
         api_key=api_key or os.environ.get("DEEPSEEK_API_KEY"),
         base_url=base_url or "https://api.deepseek.com",

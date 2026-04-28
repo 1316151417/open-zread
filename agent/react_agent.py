@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from provider.adaptor import LLMAdaptor
 from base.types import Event, EventType, ToolMessage, AssistantMessage, normalize_messages
 
-from langfuse import observe
+from util.langfuse import observe
 
 MAX_STEP_CNT = 30
 MAX_CONTEXT_CHARS = 200_000
