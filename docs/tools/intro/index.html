@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+    <meta
+      name="description"
+      content="Open Zread 是一个纯 Python 的开源 AI Agent：两阶段流水线先生成文档目录，再并行写出结构化 Wiki。支持 OpenAI / Anthropic 协议、文件系统工具、上下文压缩和可选 Langfuse 追踪。"
+    >
+    <meta property="og:title" content="Open Zread — 把代码库变成一本 Wiki">
+    <meta
+      property="og:description"
+      content="AI Agent 探索代码库，先生成目录，再并行写出每一页。纯 Python、本地编排、模型自由选择。"
+    >
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://101.200.240.206/open-zread/">
+    <link rel="canonical" href="http://101.200.240.206/open-zread/">
+    <title>Open Zread — 把代码库变成一本 Wiki</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body id="top">
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <header class="header">
+      <nav class="container nav" aria-label="主导航">
+        <a class="brand" href="#top" aria-label="Open Zread 首页"
+          ><span class="brand-mark" aria-hidden="true">Z</span>Open Zread<span class="brand-caption"
+            >代码 → Wiki</span
+          ></a
+        >
+        <div class="nav-links">
+          <a href="#philosophy">理念</a>
+          <a class="nav-optional" href="#workspace">流水线</a>
+          <a class="nav-optional" href="#internals">原理</a>
+          <a href="./docs/">文档</a>
+          <a class="nav-github" href="https://github.com/1316151417/open-zread"
+            >GitHub <span aria-hidden="true">↗</span></a
+          >
+        </div>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero container" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> OPEN-SOURCE AGENT · PYTHON</p>
+          <h1 id="hero-title">把代码库，<br>变成一本<span class="accent">Wiki。</span></h1>
+          <p class="hero-lead">AI Agent 先探索结构，<br class="mobile-break">再为每一页写出正文。</p>
+          <p class="hero-description">
+            Open Zread 是一个纯 Python 的开源 Agent。两阶段流水线、三个只读工具、上下文压缩和可选 Langfuse
+            追踪，都写在不到两千行代码里。
+          </p>
+          <div class="actions">
+            <a class="button primary" href="./docs/">阅读文档 <span aria-hidden="true">↗</span></a>
+            <a class="button secondary" href="https://github.com/1316151417/open-zread"
+              >GitHub 源码 <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="hero-note">Python 3.12 + uv · 本地编排 · 输出 Markdown + wiki.json</p>
+        </div>
+
+        <figure
+          class="app-window"
+          role="img"
+          aria-label="Open Zread 运行示意：Agent 探索代码库，调用目录和文件工具，生成 12 个主题的目录，然后并行生成正文。"
+        >
+          <div class="window-bar">
+            <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="window-title">生成项目文档</span>
+            <span class="model-chip">pro · max</span>
+          </div>
+          <div class="app-grid">
+            <div class="chat-pane">
+              <div class="message user-message">分析这个仓库，先生成目录，再并行写文档。</div>
+              <div class="message assistant-message">
+                <p class="assistant-head"><span class="avatar" aria-hidden="true">Z</span>Open Zread<span class="working">正在探索</span></p>
+                <p class="assistant-text">先读目录、入口和关键模块，再决定章节结构。</p>
+                <div class="tool-row">
+                  <code>get_dir_structure</code><span class="tool-path">.</span
+                  ><span class="tool-state ok">完成</span>
+                </div>
+                <div class="tool-row">
+                  <code>view_file_in_detail</code><span class="tool-path">main.py</span
+                  ><span class="tool-state ok">完成</span>
+                </div>
+                <div class="tool-row">
+                  <code>run_bash</code><span class="tool-path">git log --oneline</span
+                  ><span class="tool-state running">运行中</span>
+                </div>
+                <div class="diff-preview">
+                  <span class="diff-file">wiki.json · 12 页</span>
+                  <code class="diff-line add">+ 快速入门 / 项目概述</code>
+                  <code class="diff-line add">+ 快速入门 / 快速启动指南</code>
+                  <code class="diff-line add">+ 深度解析 / ReAct Agent</code>
+                </div>
+                <p class="assistant-tail">目录已生成，开始并行写正文。</p>
+              </div>
+              <div class="composer">
+                <span class="composer-placeholder">输出到 .zread/wiki/versions/…</span>
+                <kbd>⌘↵</kbd><span class="composer-hint">zread browse</span>
+              </div>
+            </div>
+            <aside class="panel-pane">
+              <div class="panel-tabs">
+                <span class="active">目录</span><span>内容</span><span>配置</span><span>追踪</span>
+              </div>
+              <div class="review-head"><span>阶段 1</span><span class="review-count">12 个主题</span></div>
+              <ul class="review-files">
+                <li>
+                  <span class="file-badge">B</span><span class="file-name">项目概述</span
+                  ><span class="file-stat">Beginner</span>
+                </li>
+                <li>
+                  <span class="file-badge">B</span><span class="file-name">快速启动指南</span
+                  ><span class="file-stat">Beginner</span>
+                </li>
+                <li>
+                  <span class="file-badge">A</span><span class="file-name">ReAct Agent</span
+                  ><span class="file-stat">Advanced</span>
+                </li>
+              </ul>
+              <div class="review-total">TOC → 并行正文</div>
+              <p class="panel-hint">pro 生成目录，max 写正文；主题之间独立运行。</p>
+            </aside>
+          </div>
+        </figure>
+      </section>
+
+      <div class="principle-strip container">
+        <span>两阶段流水线</span><span class="strip-divider" aria-hidden="true">/</span
+        ><span>本地编排</span><span class="strip-divider" aria-hidden="true">/</span
+        ><span>双协议模型</span><span class="strip-divider" aria-hidden="true">/</span
+        ><span>可选可观测</span>
+      </div>
+
+      <section id="philosophy" class="section container" aria-labelledby="philosophy-title">
+        <div class="section-heading">
+          <p class="eyebrow">01 / PHILOSOPHY</p>
+          <h2 id="philosophy-title">先把结构想清楚，再开始写。</h2>
+          <p>不把“读仓库”做成一个黑盒。目录先可见，主题各自调查，每一步都能在代码里找到对应实现。</p>
+        </div>
+        <div class="philosophy-grid">
+          <article class="philosophy-card">
+            <span class="card-number">01</span>
+            <h3>先目录，后正文</h3>
+            <p>
+              阶段 1 用 <code>pro</code> 模型探索仓库，产出章节、主题和难度级别；阶段 2 才为每个主题写
+              Markdown。结构错了，不必先写一整本书才发现。
+            </p>
+            <div class="inline-tools">
+              <code>TOC</code><code>wiki.json</code><code>Topic[]</code>
+            </div>
+          </article>
+          <article class="philosophy-card">
+            <span class="card-number">02</span>
+            <h3>小内核，能读完</h3>
+            <p>
+              ReAct 循环、三个文件系统工具、上下文压缩和双协议适配，都是普通 Python。没有框架魔法，适合作为
+              Agent 开发的参考实现。
+            </p>
+            <p class="small-note">核心代码约 1,800 行，模块职责清晰。</p>
+          </article>
+          <article class="philosophy-card">
+            <span class="card-number">03</span>
+            <h3>本地编排，边界清楚</h3>
+            <p>
+              目录遍历、工具执行和结果落盘都在本机；只有模型请求和可选的 Langfuse 追踪会把内容发到外部服务。
+            </p>
+            <p class="small-note">没有账号体系、遥测或内置模型额度。</p>
+          </article>
+        </div>
+        <aside class="clarification">
+          <span aria-hidden="true">↳</span>
+          <p>
+            <strong>本地运行，不等于代码不出本机。</strong>
+            使用云端模型时，Prompt、目录结构和工具读取到的代码片段仍会发送给你配置的模型服务；启用 Langfuse
+            后，追踪数据也会发送到 Langfuse。请使用可信的本地仓库和模型端点。
+          </p>
+        </aside>
+      </section>
+
+      <section id="models" class="section feature-section" aria-labelledby="models-title">
+        <div class="container">
+          <div class="section-heading">
+            <p class="eyebrow">02 / MODELS &amp; PIPELINE</p>
+            <h2 id="models-title">模型是配置，不是绑定。</h2>
+            <p>用 OpenAI 或 Anthropic 协议连接任意兼容服务；目录和正文可以分别选择模型层级。</p>
+          </div>
+          <div class="feature-grid">
+            <article class="feature-card featured">
+              <div class="card-top">
+                <span class="feature-symbol" aria-hidden="true">↔</span
+                ><span class="pill">pro + max</span>
+              </div>
+              <h3>三档模型配置</h3>
+              <p>
+                <code>pro</code> 负责目录，<code>max</code> 负责正文；<code>lite</code> 预留给轻量任务。每档都能独立设置
+                provider、地址、Key、模型 ID 和思考参数。
+              </p>
+              <div class="protocol-list">
+                <span>OpenAI</span><span>Anthropic</span><span>DeepSeek</span><span>自定义地址</span>
+              </div>
+              <p class="small-note">
+                README 示例使用 Anthropic 协议；代码默认值是 OpenAI 协议。按服务端实际接口选择，不要只看服务名。
+              </p>
+            </article>
+            <article class="feature-card">
+              <div class="card-top">
+                <span class="feature-symbol" aria-hidden="true">◇</span
+                ><span class="pill">两阶段流水线</span>
+              </div>
+              <h3>目录先落盘，正文再并行</h3>
+              <p>
+                阶段 1 把 XML 目录解析成主题列表并写入 <code>wiki.json</code>；阶段 2 为每个主题启动独立 Agent，默认
+                10 个线程并行生成。
+              </p>
+              <p class="small-note">单个主题失败不会终止其他主题；重新运行会创建新版本，不覆盖旧版本。</p>
+            </article>
+            <article class="feature-card">
+              <div class="card-top">
+                <span class="feature-symbol" aria-hidden="true">∥</span
+                ><span class="pill">上下文压缩</span>
+              </div>
+              <h3>长对话不会无限增长</h3>
+              <p>
+                消息 JSON 超过 200K 字符时，保留最近 6 条，把更早的对话压缩成摘要。压缩使用当前阶段的模型配置。
+              </p>
+              <p class="small-note">按字符数而不是 token 数计算；摘要可能丢失细节，重要约束应写进 Prompt。</p>
+            </article>
+            <article class="feature-card">
+              <div class="card-top">
+                <span class="feature-symbol" aria-hidden="true">$_</span
+                ><span class="pill">配置可迁移</span>
+              </div>
+              <h3>settings.json + 环境变量</h3>
+              <p>
+                API Key 支持 <code>${ENV_VAR}</code> 展开；Anthropic 地址会自动补 <code>/anthropic</code>。配置从当前目录读取，
+                适合把不同仓库接到不同模型端点。
+              </p>
+              <p class="small-note">配置在进程内缓存；修改后重新运行才会生效。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="internals" class="section container collaboration-section" aria-labelledby="agent-title">
+        <div class="collaboration-copy">
+          <p class="eyebrow">03 / AGENT LOOP</p>
+          <h2 id="agent-title">ReAct 循环，<br>三个只读工具。</h2>
+          <p>「先看目录，再读文件，最后跑一条只读命令。」</p>
+          <p>
+            每个主题都是一个独立 ReAct Agent：模型发出工具调用，Python 执行工具并把结果写回对话，直到模型不再调用工具。
+            过程通过事件流暴露，方便观察和调试。
+          </p>
+          <ul class="check-list">
+            <li>get_dir_structure、view_file_in_detail、run_bash</li>
+            <li>单次默认最多 30 步，超过 200K 字符自动压缩</li>
+            <li>没有内置写入、删除或执行程序工具</li>
+            <li>白名单是风险降低，不是操作系统沙箱</li>
+          </ul>
+        </div>
+        <div class="collaboration-diagram">
+          <div class="diagram-label">一次运行的执行路径</div>
+          <div class="chat-block main-chat">
+            <span class="chat-label"><i class="status-dot" aria-hidden="true"></i> 主任务</span>
+            <h3>生成项目 Wiki</h3>
+            <div class="task-steps"><span>探索结构</span><span>生成 TOC</span><span>并行正文</span></div>
+          </div>
+          <div class="context-bridge"><span aria-hidden="true">↳</span> 阶段 1 · pro → 阶段 2 · max</div>
+          <div class="branch-grid">
+            <div class="chat-block auxiliary-chat">
+              <span class="chat-label">阶段 1</span>
+              <h3>目录</h3>
+              <p>XML TOC → Topic[] → wiki.json</p>
+            </div>
+            <div class="chat-block subagent-chat">
+              <span class="chat-label">阶段 2</span>
+              <h3>正文</h3>
+              <p>每个主题独立 Agent，并行写 Markdown。</p>
+            </div>
+          </div>
+          <div class="question-block">
+            <span class="chat-label">上下文超过 200K 字符？</span>
+            <p>压缩旧对话，保留最近 6 条。</p>
+            <div class="question-options"><span>摘要旧消息</span><span>继续当前主题</span><span>保留工具结果</span></div>
+          </div>
+          <p class="diagram-note">
+            工具通过白名单和危险模式过滤降低风险，但 `git`、`sed`、`tee`、`xargs` 等命令仍可能产生副作用。
+          </p>
+        </div>
+      </section>
+
+      <section id="workspace" class="section container workspace-section" aria-labelledby="workspace-title">
+        <div class="section-heading">
+          <p class="eyebrow">04 / WORKFLOW</p>
+          <h2 id="workspace-title">常用的留下，复杂的拿掉。</h2>
+          <p>从探索到落盘，保留生成 Wiki 真正需要的那几步。</p>
+        </div>
+        <div class="workspace-grid">
+          <article>
+            <span class="workspace-icon" aria-hidden="true">⌕</span>
+            <h3>自动探索</h3>
+            <p>
+              Agent 读取目录、入口文件和关键模块，先形成架构假设，再用工具验证。不是把整个仓库一次性塞进上下文。
+            </p>
+          </article>
+          <article>
+            <span class="workspace-icon" aria-hidden="true">▤</span>
+            <h3>结构化目录</h3>
+            <p>
+              TOC 包含章节、主题、分组和难度级别；slug 由拼音生成。目录在正文之前写入 <code>wiki.json</code>，可以先检查结构。
+            </p>
+          </article>
+          <article>
+            <span class="workspace-icon" aria-hidden="true">⑂</span>
+            <h3>独立主题 Agent</h3>
+            <p>
+              每个主题有自己的 ReAct 对话和工具调用，互不共享历史。适合并行；代价是可能重复探索同一批文件。
+            </p>
+          </article>
+          <article>
+            <span class="workspace-icon" aria-hidden="true">&gt;_</span>
+            <h3>文件系统工具</h3>
+            <p>
+              目录树、分段文件读取和只读 Shell 命令。搜索、Git、文本处理都通过已有命令完成，不增加专用工具。
+            </p>
+          </article>
+          <article>
+            <span class="workspace-icon" aria-hidden="true">↻</span>
+            <h3>上下文压缩</h3>
+            <p>
+              超过 200K 字符时，用当前模型总结旧对话，保留最近 6 条。压缩失败会退回 system + 最近消息继续。
+            </p>
+          </article>
+          <article>
+            <span class="workspace-icon" aria-hidden="true">◷</span>
+            <h3>本地版本化</h3>
+            <p>
+              每次运行写入 <code>.zread/wiki/versions/&lt;timestamp&gt;/</code>，用 <code>current</code> 指针标记最新版本；不覆盖旧结果。
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="extensions" class="section extension-section" aria-labelledby="extensions-title">
+        <div class="container">
+          <div class="section-heading">
+            <p class="eyebrow">05 / EXTENSIONS &amp; BOUNDARIES</p>
+            <h2 id="extensions-title">可读的实现，明确的边界。</h2>
+            <p>Prompt、协议、目录解析和存储都可以单独阅读和替换；不需要先理解一整套框架。</p>
+          </div>
+          <div class="extension-grid">
+            <article class="extension-card">
+              <span class="extension-tag">PROMPTS</span>
+              <h3>本地模板 + Langfuse</h3>
+              <p>
+                默认使用仓库内 Python 模板；启用 Langfuse 后从 Prompt Management 拉取 step1、step2、compress
+                三个 chat prompt，并可远程迭代。
+              </p>
+              <p class="small-note">同步命令：uv run python -m prompt.langfuse_prompt_init</p>
+            </article>
+            <article class="extension-card">
+              <span class="extension-tag">PROVIDERS</span>
+              <h3>双协议适配层</h3>
+              <p>
+                LLMAdaptor 统一消息、工具 Schema 和流式事件，把 OpenAI 与 Anthropic 的差异收在 provider/ 目录里。
+              </p>
+              <p class="small-note">支持自定义 base_url；协议兼容性取决于服务端。</p>
+            </article>
+            <article class="extension-card">
+              <span class="extension-tag">PARSING</span>
+              <h3>XML TOC 与 blog 提取</h3>
+              <p>
+                阶段 1 用正则解析 &lt;section&gt; / &lt;group&gt; / &lt;topic&gt;；阶段 2 从输出中提取
+                &lt;blog&gt; 内容。格式简单，便于观察和替换。
+              </p>
+              <p class="small-note">模型不遵守格式时，错误会在解析层暴露。</p>
+            </article>
+            <article class="extension-card">
+              <span class="extension-tag">OBSERVABILITY</span>
+              <h3>可选的 Langfuse</h3>
+              <p>
+                默认关闭；打开后记录流水线阶段、主题 metadata、Agent span 和 Prompt 使用情况。OpenAI 调用自动追踪。
+              </p>
+              <p class="small-note">追踪数据可能包含代码片段，使用可信实例。</p>
+            </article>
+            <article class="extension-card">
+              <span class="extension-tag">STORAGE</span>
+              <h3>Wiki 文件格式</h3>
+              <p>
+                wiki.json 描述页面和章节，Markdown 保存正文，current 指向最新版本。没有数据库，也没有隐藏状态。
+              </p>
+              <p class="small-note">生成中断会留下部分结果；重新运行创建新版本。</p>
+            </article>
+            <article class="extension-card">
+              <span class="extension-tag">SECURITY</span>
+              <h3>只读边界，不是沙箱</h3>
+              <p>
+                没有 write/edit 工具，run_bash 有白名单和危险模式过滤；但它仍以当前用户权限执行 Shell，可能被绕过。
+              </p>
+              <p class="small-note">只在可信仓库运行；需要强隔离时使用容器。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="developer" class="section developer-section" aria-labelledby="developer-title">
+        <div class="container">
+          <div class="developer-grid">
+            <div class="developer-copy">
+              <p class="eyebrow light">06 / DEVELOPER</p>
+              <h2 id="developer-title">Agent 内核，<br>可以读完。</h2>
+              <p>
+                没有复杂框架。ReAct 循环、工具调用、上下文压缩、Prompt 编译和双协议适配，各自是一个普通 Python 模块，
+                适合边读边改。
+              </p>
+              <ul class="check-list light">
+                <li>agent/react_agent.py：ReAct 循环与压缩</li>
+                <li>pipeline/：两阶段编排与 XML 解析</li>
+                <li>provider/：OpenAI / Anthropic 流式适配</li>
+                <li>tool/fs_tool.py：三个文件系统工具</li>
+              </ul>
+              <div class="developer-actions">
+                <a class="button primary inverse" href="./docs/overview.html">总览与模块地图</a>
+                <code class="command-chip">uv sync</code>
+              </div>
+              <p class="developer-note">
+                完整文档：<a href="./docs/">Open Zread 文档站</a>。包含索引、概览、功能和原理，支持搜索、目录和深浅色。
+              </p>
+            </div>
+            <div class="code-card">
+              <div class="code-head"><span>agent/react_agent.py</span><span>Python</span></div>
+              <pre><code>for step in range(1, max_steps + 1):
+    compressed = compress_if_needed(adaptor, messages)
+    if compressed is not messages:
+        messages.clear()
+        messages.extend(compressed)
+
+    yield Event(type=EventType.STEP_START, step=step)
+
+    for event in adaptor.stream(messages, tools):
+        yield event</code></pre>
+            </div>
+          </div>
+
+          <div class="package-strip" aria-label="核心模块">
+            <div><code>agent</code><span>ReAct 与上下文压缩</span></div>
+            <div><code>base</code><span>Event / Tool / Message</span></div>
+            <div><code>pipeline</code><span>两阶段编排</span></div>
+            <div><code>provider</code><span>双协议流式适配</span></div>
+            <div><code>prompt</code><span>本地与 Langfuse</span></div>
+          </div>
+
+          <div class="local-first">
+            <article>
+              <h3>文件在本机</h3>
+              <p>目录、Markdown、wiki.json 和版本指针都写入目标项目的 .zread/wiki/；没有云端数据库。</p>
+            </article>
+            <article>
+              <h3>模型在外部</h3>
+              <p>Prompt 和代码片段会发送给你配置的模型服务；Langfuse 开启后追踪数据也会离开本机。</p>
+            </article>
+            <article>
+              <h3>边界写清楚</h3>
+              <p>只读工具不是沙箱，生成内容也可能出错。文档把实现、缺口和已知限制都写出来。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="start" class="section container" aria-labelledby="start-title">
+        <div class="getting-started">
+          <div>
+            <p class="eyebrow">07 / GET STARTED</p>
+            <h2 id="start-title">从一个目录开始。</h2>
+            <p>准备 Python 3.12 和一个模型 API Key。</p>
+            <a class="button primary" href="./docs/features/getting-started.html"
+              >阅读快速开始 <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <ol class="start-steps">
+            <li>
+              <span>01</span>
+              <div>
+                <h3>安装</h3>
+                <p>克隆仓库，运行 uv sync。</p>
+              </div>
+            </li>
+            <li>
+              <span>02</span>
+              <div>
+                <h3>配置</h3>
+                <p>填写 API Key，按需修改 settings.json。</p>
+              </div>
+            </li>
+            <li>
+              <span>03</span>
+              <div>
+                <h3>运行</h3>
+                <p>在目标项目目录执行 main.py，然后用 zread browse 预览。</p>
+              </div>
+            </li>
+          </ol>
+        </div>
+        <p class="platform-note">
+          需要 Python 3.12+、uv 和可用的模型 API。Open Zread 不内置阅读器、模型额度或账号体系；生成结果由 Zread CLI 预览。
+        </p>
+      </section>
+
+      <section id="faq" class="section container faq-section" aria-labelledby="faq-title">
+        <div class="section-heading">
+          <p class="eyebrow">A FEW CLEAR BOUNDARIES</p>
+          <h2 id="faq-title">把边界也说清楚。</h2>
+        </div>
+        <div class="faq-list">
+          <details>
+            <summary>代码会离开本机吗？</summary>
+            <p>
+              流水线、文件读取和结果存储在本地，但模型请求会携带 Prompt、目录结构和工具读取到的代码片段，发送给你配置的模型服务。
+              启用 Langfuse 后，追踪数据还会发送到 Langfuse。不要在不允许外部处理的仓库上运行。
+            </p>
+          </details>
+          <details>
+            <summary>生成结果怎么阅读？</summary>
+            <p>
+              Open Zread 输出 Markdown 和 wiki.json，没有内置阅读器。使用 Zread CLI 的 <code>zread browse</code>
+              预览，或用编辑器打开 .zread/wiki/versions/&lt;timestamp&gt;/。
+            </p>
+          </details>
+          <details>
+            <summary>三个工具真的是只读的吗？</summary>
+            <p>
+              没有 write/edit/delete 工具，run_bash 有命令白名单和危险模式过滤。但它以当前用户权限执行 Shell，白名单对
+              git、sed、tee、xargs 等命令仍有较大空间，因此不是安全沙箱。只在可信仓库运行。
+            </p>
+          </details>
+          <details>
+            <summary>支持哪些模型？</summary>
+            <p>
+              支持 OpenAI 和 Anthropic 两种协议，可连接 DeepSeek、OpenAI 或任意兼容服务。协议、地址、模型 ID 和思考参数
+              都在 settings.json 中配置；兼容性最终取决于服务端。
+            </p>
+          </details>
+          <details>
+            <summary>为什么有 lite / pro / max 三档？</summary>
+            <p>
+              当前流水线用 pro 生成目录、max 生成正文；lite 是预留层级，当前版本只加载和打印，不参与主要流程。三档都支持
+              独立配置，方便后续扩展轻量任务。
+            </p>
+          </details>
+          <details>
+            <summary>和 Zread CLI 是什么关系？</summary>
+            <p>
+              Open Zread 是 Zread CLI 的开源 Python 版本，重点在 Agent 核心实现。CLI 交互、登录、内置模型额度和
+              Web 阅读器请使用 Zread CLI；本项目生成兼容的 .zread/wiki 文件。
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section class="closing container" aria-label="项目链接">
+        <p>代码会变，文档应该跟得上。</p>
+        <div>
+          <a href="./docs/">阅读完整文档 <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="container footer">
+      <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true">Z</span>Open Zread</a>
+      <p>Python · Open source · Local-first</p>
+      <div>
+        <a href="./docs/">文档</a>
+        <a href="https://github.com/ZreadAI/zread_cli" target="_blank" rel="noopener">Zread CLI ↗</a>
+        <a href="https://github.com/1316151417/open-zread" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
+    </footer>
+  </body>
+</html>
